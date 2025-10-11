@@ -142,7 +142,7 @@ Once running, you can ask questions like:
 
 ---
 
-## 🔧 Model Options
+## Model Options
 
 ### Google ADK Models (`rag_system.py`):
 
