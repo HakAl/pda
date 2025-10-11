@@ -83,7 +83,7 @@ GOOGLE_API_KEY=your_google_api_key_here
 
 ---
 
-### 🖥️ For Local Mode (Private)
+### For Local Mode (Private)
 
 #### Install Ollama:
 
@@ -130,7 +130,7 @@ Once running, you can ask questions like:
 
 ---
 
-## ⚖️ Mode Comparison
+## Mode Comparison
 
 | Aspect       | Local Mode             | Google ADK Mode            |
 | ------------ | ---------------------- | -------------------------- |
