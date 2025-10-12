@@ -94,8 +94,10 @@ ehthumbs.db
 Thumbs.db
 
 # Project specific
-chroma_db/          # Vector database directory
-documents/          # User documents (if you don't want to include sample docs)
+chroma_db/
+chroma_db/*
+documents/
+documents/*
 *.pdf               # PDF files in root (keep if you want to exclude all PDFs)
 *.txt               # Text files in root (keep if you want to exclude all TXT files)
 
