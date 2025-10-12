@@ -1,14 +1,14 @@
 # Personal Document Q&A Assistant
 
-A flexible RAG-based document question-answering system that supports both **local processing** (via Ollama) and **cloud processing** (via Google ADK). Choose the option that best fits your privacy, performance, and hardware needs.
+A flexible RAG-based document question-answering system that supports both **local processing** (via Ollama) and **cloud processing** (via Google Gen AI). Choose the option that best fits your privacy, performance, and hardware needs.
 
 ## Features
 
-- **Dual-Mode Operation**: Switch between local processing (private, offline) and Google ADK (fast, powerful)
+- **Dual-Mode Operation**: Switch between local processing (private, offline) and Google Gen AI (fast, powerful)
 - **Multiple File Support**: PDFs and text files
 - **Lightweight Design**: Optimized for low-power machines
 - **Privacy-First**: Local mode keeps all data on your device
-- **Fast Cloud Option**: Google ADK mode for superior performance when internet is available
+- **Fast Cloud Option**: Google Gen AI mode for superior performance when internet is available
 
 ## Architecture
 ```
@@ -62,7 +62,7 @@ google-generativeai>=0.3.0
 
 ## Configuration
 
-### For Google ADK Mode (Cloud)
+### For Google Generative AI Mode (Cloud)
 
 #### Get Google API Key:
 
@@ -74,7 +74,7 @@ google-generativeai>=0.3.0
 GOOGLE_API_KEY=your_google_api_key_here
 ```
 
-#### Google ADK Benefits:
+#### Google Gen AI Benefits:
 
 * Optimized models: Gemini models are efficient and powerful
 * Cost-effective: Generous free tier
@@ -116,7 +116,7 @@ python app.py
 3. Choose your preferred mode when prompted:
 
    * **Local**: Private, offline processing using Ollama
-   * **Google ADK**: Cloud-based processing using Gemini models
+   * **Google Gen AI**: Cloud-based processing using Gemini models
 
 ---
 
@@ -132,7 +132,7 @@ Once running, you can ask questions like:
 
 ## Mode Comparison
 
-| Aspect       | Local Mode             | Google ADK Mode            |
+| Aspect       | Local Mode             | Google Gen AI Mode            |
 | ------------ | ---------------------- | -------------------------- |
 | **Privacy**  | ✅ 100% local           | ❌ Data sent to Google      |
 | **Internet** | ✅ Works offline        | ❌ Requires connection      |
@@ -144,7 +144,7 @@ Once running, you can ask questions like:
 
 ## Model Options
 
-### Google ADK Models (`rag_system.py`):
+### Google Gen AI Models (`rag_system.py`):
 
 ```python
 model_options = {
@@ -170,7 +170,7 @@ model_options = {
 * Reduce retrieved documents: Top 2–3 matches only
 * Process in batches for large document collections
 * Choose **Local Mode**: For privacy + enough RAM
-* Choose **Google ADK**: For speed + internet access
+* Choose **Google Gen AI**: For speed + internet access
 
 ---
 
@@ -199,5 +199,5 @@ You now have a **hybrid document Q&A system**! You can extend it by:
 ## Need Help?
 
 * **Local mode issues**: Check [Ollama documentation](https://ollama.ai) and verify models are downloaded
-* **Google ADK issues**: Check API key and internet connection
+* **Google Gen AI issues**: Check API key and internet connection
 * **Performance issues**: Try smaller models or reduce chunk sizes

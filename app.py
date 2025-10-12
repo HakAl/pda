@@ -53,7 +53,7 @@ class DocumentQAAssistant:
         print("You can now ask questions about your documents.")
     
     def choose_mode(self):
-        """Let user choose between local and Google ADK mode"""
+        """Let user choose between local and Google Gen AI mode"""
         print("\n🔧 Choose Processing Mode:")
         print("1. Local Mode (Private, Offline)")
         print("   - Uses Ollama with local models")
@@ -61,7 +61,7 @@ class DocumentQAAssistant:
         print("   - Requires adequate RAM and Ollama installation")
         print("   - Slower but completely offline")
         
-        print("\n2. Google ADK Mode (Fast, Cloud)")
+        print("\n2. Google Gen AI Mode (Fast, Cloud)")
         print("   - Uses Google's Gemini models")
         print("   - Very fast responses")
         print("   - Requires internet connection and API key")
@@ -147,7 +147,7 @@ class DocumentQAAssistant:
                 print(f"Error: {e}")
     
     def switch_mode(self):
-        """Switch between local and Google ADK mode"""
+        """Switch between local and Google Gen AI mode"""
         print(f"\n🔄 Current mode: {self.current_mode.upper()}")
         confirm = input("Do you want to switch modes? (yes/no): ").strip().lower()
         
@@ -176,7 +176,7 @@ class DocumentQAAssistant:
         print("\n📋 Available commands:")
         print("  - Ask any question about your documents")
         print("  - 'quit' - Exit the application")
-        print("  - 'mode' - Switch between local and Google ADK modes")
+        print("  - 'mode' - Switch between local and Google Gen AI modes")
         print("  - 'reload' - Reload and reprocess all documents")
         print("  - 'help' - Show this help message")
         
