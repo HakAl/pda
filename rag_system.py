@@ -32,7 +32,7 @@ class RAGSystem:
             if api_key:
                 genai.configure(api_key=api_key)
             
-            model = model_name or "gemini-1.5-flash"
+            model = model_name or "gemini-2.0-flash-lite"
             
             return ChatGoogleGenerativeAI(
                 model=model,
@@ -46,11 +46,11 @@ class RAGSystem:
     def _setup_local_llm(self, model_name):
         """Setup local Ollama LLM"""
         try:
-            from langchain.llms import Ollama
+            from langchain_ollama import OllamaLLM
             
             model = model_name or "phi3:mini"
             
-            return Ollama(
+            return OllamaLLM(
                 model=model,
                 temperature=0.1,
                 num_predict=800,  # Limit output length
@@ -119,7 +119,7 @@ Answer: """
     def ask_question(self, question):
         """Ask a question and get an answer"""
         try:
-            result = self.qa_chain({"query": question})
+            result = self.qa_chain.invoke({"query": question})
             return {
                 "answer": result["result"],
                 "source_documents": result["source_documents"]

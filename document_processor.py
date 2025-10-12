@@ -1,7 +1,7 @@
 import os
-from langchain.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_chroma import Chroma
 
 class DocumentProcessor:
     def __init__(self, persist_directory="./chroma_db", api_key=None):
@@ -20,7 +20,7 @@ class DocumentProcessor:
     def _setup_embeddings(self):
         """Setup embeddings - always use local for compatibility"""
         try:
-            from langchain.embeddings import HuggingFaceEmbeddings
+            from langchain_huggingface import HuggingFaceEmbeddings
             return HuggingFaceEmbeddings(
                 model_name="sentence-transformers/all-MiniLM-L6-v2",
                 model_kwargs={'device': 'cpu'},
@@ -85,7 +85,6 @@ class DocumentProcessor:
             embedding=self.embeddings,
             persist_directory=self.persist_directory
         )
-        vector_store.persist()
         
         print("✅ Vector database created successfully!")
         return vector_store
