@@ -145,12 +145,11 @@ Once running, you can ask questions like:
 ## Model Options
 
 ### Google Gen AI Models (`rag_system.py`):
-
 ```python
 model_options = {
-    "fast": "gemini-1.5-flash",      # Fastest, most efficient
-    "balanced": "gemini-1.5-pro",    # Better quality, still efficient
-    "high_quality": "gemini-1.5-pro" # Best quality
+    "fast": "gemini-2.0-flash",      # Fastest, most efficient
+    "balanced": "gemini-2.0-flash-lite",    # Better quality, still efficient
+    "high_quality": "gemini-2.5-flash" # Best quality
 }
 ```
 
