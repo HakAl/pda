@@ -16,6 +16,11 @@ from langchain_core.retrievers import BaseRetriever
 from langchain_core.runnables import RunnableSerializable
 from sentence_transformers import CrossEncoder
 
+# For profiling
+import cProfile
+import pstats
+import io
+
 
 # ---------- singleton reranker ----------
 @lru_cache(maxsize=1)
@@ -25,13 +30,13 @@ def _get_reranker() -> CrossEncoder:
 
 class RAGSystem:
     def __init__(
-        self,
-        vector_store: Chroma,
-        mode: str = "local",
-        api_key: str | None = None,
-        model_name: str | None = None,
-        bm25_index: Any | None = None,
-        bm25_chunks: list[Document] | None = None,
+            self,
+            vector_store: Chroma,
+            mode: str = "local",
+            api_key: str | None = None,
+            model_name: str | None = None,
+            bm25_index: Any | None = None,
+            bm25_chunks: list[Document] | None = None,
     ):
         self.vector_store = vector_store
         self.embeddings = vector_store._embedding_function
@@ -131,11 +136,11 @@ class RAGSystem:
 
         class FastCompressor(BaseDocumentCompressor):
             def compress_documents(
-                self,
-                docs: List[Document],
-                query: str,
-                *,
-                callbacks: Optional[CallbackManagerForRetrieverRun] = None,
+                    self,
+                    docs: List[Document],
+                    query: str,
+                    *,
+                    callbacks: Optional[CallbackManagerForRetrieverRun] = None,
             ) -> List[Document]:
                 merged, seen = list(docs), {d.page_content for d in docs}
 
@@ -194,12 +199,30 @@ class RAGSystem:
         return getattr(self.llm, "model", "phi3:mini")
 
     @lru_cache(maxsize=128)
-    def ask_question(self, question: str) -> dict[str, Any]:
+    def ask_question(self, question: str, profile: bool = False) -> dict[str, Any]:  # Added profile flag
         t0 = time.perf_counter()
+
+        pr = None
+        s = None
+
+        if profile:  # Start profiling if flag is true
+            pr = cProfile.Profile()
+            pr.enable()
+
         try:
             result = self._get_chain().invoke({"query": question})
             t1 = time.perf_counter()
             print(f"⏱  QA chain took {t1 - t0:.2f}s")
+
+            if profile and pr:  # End profiling and print stats
+                pr.disable()
+                s = io.StringIO()
+                sortby = pstats.SortKey.CUMULATIVE
+                ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+                ps.print_stats(15)  # Print top 15 cumulative stats
+                print("\n--- Baseline Profile Stats (Top 15 cumulative) ---")
+                print(s.getvalue())
+
             return {
                 "answer": result["result"],
                 "source_documents": result["source_documents"],
@@ -208,4 +231,14 @@ class RAGSystem:
             msg = f"Error processing your question: {e}"
             if self.mode == "local":
                 msg += "\n\n💡 Tip: Make sure Ollama is running and your model is downloaded."
+
+            if profile and pr:  # Ensure profiler is disabled even on error
+                pr.disable()
+                s = io.StringIO()
+                sortby = pstats.SortKey.CUMULATIVE
+                ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
+                ps.print_stats(15)
+                print("\n--- Baseline Profile Stats (Top 15 cumulative - with error) ---")
+                print(s.getvalue())
+
             return {"answer": msg, "source_documents": []}
