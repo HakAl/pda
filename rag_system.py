@@ -1,208 +1,194 @@
-from __future__ import annotations
+"""
+RAG System with dependency injection and clean separation of concerns.
+"""
 
 import time
-from functools import lru_cache
-from typing import Any, List, Optional
-
-import numpy as np
+from typing import Any, Dict, List, Optional
 from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.retrievers import ContextualCompressionRetriever
 from langchain_chroma import Chroma
-from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_core.documents import Document
-from langchain_core.documents.compressor import BaseDocumentCompressor
-from langchain_core.retrievers import BaseRetriever
+from langchain_core.language_models import BaseLanguageModel
+from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableSerializable
-from sentence_transformers import CrossEncoder
 
-# For profiling
-import cProfile
-import pstats
-import io
-
-
-# ---------- singleton reranker ----------
-@lru_cache(maxsize=1)
-def _get_reranker() -> CrossEncoder:
-    return CrossEncoder("cross-encoder/ms-marco-TinyBERT-L-2-v2")
+from llm_factory import LLMConfig
 
 
 class RAGSystem:
+    """
+    RAG system with dependency injection for LLM configuration.
+
+    This class focuses purely on the QA pipeline, delegating:
+    - LLM configuration to LLMConfig
+    - Retrieval to HybridRetriever (injected)
+    - Model loading to external factories
+    """
+
     def __init__(
             self,
             vector_store: Chroma,
-            mode: str = "local",
-            api_key: str | None = None,
-            model_name: str | None = None,
-            bm25_index: Any | None = None,
-            bm25_chunks: list[Document] | None = None,
+            llm_config: LLMConfig,
+            bm25_index: Optional[Any] = None,
+            bm25_chunks: Optional[List[Document]] = None,
     ):
+        """
+        Initialize RAG system with dependency injection.
+
+        Args:
+            vector_store: ChromaDB vector store
+            llm_config: LLM configuration object (handles creation + prompts)
+            bm25_index: Optional BM25 index for hybrid retrieval
+            bm25_chunks: Optional documents for BM25 index
+        """
         self.vector_store = vector_store
-        self.embeddings = vector_store._embedding_function
-        self.mode = mode
+        self.llm_config = llm_config
         self.bm25_index = bm25_index
         self.bm25_chunks = bm25_chunks or []
 
-        self._pre_warm_components()
-        self.llm = self._setup_llm(mode, api_key, model_name)
-        self.prompt = self._setup_prompt(mode)
+        # Create LLM from config
+        self.llm = llm_config.create_llm()
+        self.prompt = llm_config.get_prompt_template()
 
-        # ---------- important: keep retriever and chain separate ----------
+        # Build retriever and chain
         self._retriever = self._build_retriever()
-        self._chain: RunnableSerializable | None = None
+        self._chain: Optional[RunnableSerializable] = None
 
-        print(f"🤖 Loaded {mode.upper()} model: {self._get_model_info()}")
+        print(f"🤖 Loaded LLM: {llm_config.get_display_name()}")
 
-    # ------------------------------------------------------------------
-    #  Internal helpers
-    # ------------------------------------------------------------------
-    def _pre_warm_components(self) -> None:
-        if self.bm25_index:
-            try:
-                _ = self.bm25_index.get_scores(["test"])
-            except Exception:
-                pass
-
-    def _setup_llm(self, mode: str, api_key: str | None, model_name: str | None):
-        if mode == "google":
-            return self._setup_google_llm(api_key, model_name)
-        return self._setup_optimized_local_llm(model_name)
-
-    def _setup_google_llm(self, api_key: str | None, model_name: str | None):
-        try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            import google.generativeai as genai
-
-            if api_key:
-                genai.configure(api_key=api_key)
-            model = model_name or "gemini-2.0-flash-lite"
-            return ChatGoogleGenerativeAI(
-                model=model,
-                google_api_key=api_key,
-                temperature=0.1,
-                max_output_tokens=1000,
-            )
-        except ImportError as e:
-            raise ImportError("pip install langchain-google-genai") from e
-
-    def _setup_optimized_local_llm(self, model_name: str | None):
-        try:
-            from langchain_ollama import OllamaLLM
-
-            model = model_name or "llama3.1:8b-instruct-q4_K_M"
-            return OllamaLLM(
-                model=model,
-                temperature=0.1,
-                num_predict=600,
-                num_thread=6,
-                num_gpu=1,
-                top_k=20,
-                top_p=0.9,
-                repeat_penalty=1.1,
-            )
-        except ImportError as e:
-            raise ImportError("pip install ollama") from e
-
-    def _setup_prompt(self, mode: str) -> PromptTemplate:
-        template = (
-            "<|start_header_id|>system<|end_header_id|>\n\n"
-            "Answer using ONLY the context. If answer is missing, say so. Be direct.\n"
-            "<|eot_id|>\n"
-            "<|start_header_id|>user<|end_header_id|>\n\n"
-            "Context:\n{context}\n\n"
-            "Question: {question}<|eot_id|>\n"
-            "<|start_header_id|>assistant<|end_header_id|>\n\n"
-        )
-        if mode == "google":  # longer prompt for cloud model
-            template = (
-                "You are a helpful document assistant.  "
-                "Use only the provided context to answer accurately.\n\n"
-                "Context: {context}\n\nQuestion: {question}\n\n"
-                "Instructions:\n"
-                "- Answer solely from the context\n"
-                "- If the context does not contain the information, state: "
-                "'I cannot find this information in the provided documents.'\n"
-                "- Keep answers concise and cite sources when relevant.\n\n"
-                "Answer: "
-            )
-        return PromptTemplate(template=template, input_variables=["context", "question"])
-
-    # ------------------------------------------------------------------
-    #  Retriever (built once)
-    # ------------------------------------------------------------------
-    def _build_retriever(self) -> BaseRetriever:
+    def _build_retriever(self):
+        """Build hybrid retriever with reranking."""
         from hybrid_retriever import create_hybrid_retrieval_pipeline
 
         return create_hybrid_retrieval_pipeline(
             vector_store=self.vector_store,
             bm25_index=self.bm25_index,
             bm25_chunks=self.bm25_chunks,
-            use_reranking=True,  # Make this configurable if needed
+            use_reranking=True,
         )
 
-    # ------------------------------------------------------------------
-    #  Chain (built once, cached forever)
-    # ------------------------------------------------------------------
     def _get_chain(self) -> RunnableSerializable:
+        """Lazy-load and cache the QA chain."""
         if self._chain is None:
             self._chain = RetrievalQA.from_chain_type(
                 llm=self.llm,
                 chain_type="stuff",
-                retriever=self._retriever,  # ← BaseRetriever, not RetrievalQA
+                retriever=self._retriever,
                 chain_type_kwargs={"prompt": self.prompt},
                 return_source_documents=True,
             )
         return self._chain
 
-    # ------------------------------------------------------------------
-    #  Public API
-    # ------------------------------------------------------------------
-    def _get_model_info(self) -> str:
-        if self.mode == "google":
-            return getattr(self.llm, "model", "gemini-2.0-flash-lite")
-        return getattr(self.llm, "model", "phi3:mini")
+    def ask_question(self, question: str) -> Dict[str, Any]:
+        """
+        Ask a question and get an answer with sources.
 
-    def ask_question(self, question: str, profile: bool = False) -> dict[str, Any]:  # Added profile flag
+        Args:
+            question: User's question
+
+        Returns:
+            Dictionary containing:
+                - answer: str (the LLM's response)
+                - source_documents: List[Document] (supporting documents)
+
+        Raises:
+            RAGSystemError: If retrieval or generation fails
+        """
         t0 = time.perf_counter()
-
-        pr = None
-        s = None
-
-        if profile:  # Start profiling if flag is true
-            pr = cProfile.Profile()
-            pr.enable()
 
         try:
             result = self._get_chain().invoke({"query": question})
             t1 = time.perf_counter()
-            print(f"⏱  QA chain took {t1 - t0:.2f}s")
 
-            if profile and pr:  # End profiling and print stats
-                pr.disable()
-                s = io.StringIO()
-                sortby = pstats.SortKey.CUMULATIVE
-                ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-                ps.print_stats(15)  # Print top 15 cumulative stats
-                print("\n--- Baseline Profile Stats (Top 15 cumulative) ---")
-                print(s.getvalue())
+            print(f"⏱  QA chain took {t1 - t0:.2f}s")
 
             return {
                 "answer": result["result"],
                 "source_documents": result["source_documents"],
             }
+
         except Exception as e:
-            msg = f"Error processing your question: {e}"
-            if self.mode == "local":
-                msg += "\n\n💡 Tip: Make sure Ollama is running and your model is downloaded."
+            # Construct helpful error message based on LLM type
+            error_msg = self._format_error_message(e)
+            raise RAGSystemError(error_msg) from e
 
-            if profile and pr:  # Ensure profiler is disabled even on error
-                pr.disable()
-                s = io.StringIO()
-                sortby = pstats.SortKey.CUMULATIVE
-                ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
-                ps.print_stats(15)
-                print("\n--- Baseline Profile Stats (Top 15 cumulative - with error) ---")
-                print(s.getvalue())
+    def _format_error_message(self, error: Exception) -> str:
+        """Format error message with helpful context."""
+        base_msg = f"Error processing your question: {str(error)}"
 
-            return {"answer": msg, "source_documents": []}
+        # Add LLM-specific troubleshooting hints
+        llm_name = self.llm_config.get_display_name().lower()
+
+        if "ollama" in llm_name:
+            base_msg += (
+                "\n\n💡 Troubleshooting tips for Ollama:"
+                "\n  1. Ensure Ollama is running (check with: ollama list)"
+                "\n  2. Verify your model is downloaded (e.g., ollama pull llama3.1:8b-instruct-q4_K_M)"
+                "\n  3. Check if Ollama service is accessible"
+            )
+        elif "google" in llm_name or "gemini" in llm_name:
+            base_msg += (
+                "\n\n💡 Troubleshooting tips for Google Gemini:"
+                "\n  1. Verify your API key is valid"
+                "\n  2. Check your internet connection"
+                "\n  3. Ensure you have API quota remaining"
+            )
+        elif "openai" in llm_name or "gpt" in llm_name:
+            base_msg += (
+                "\n\n💡 Troubleshooting tips for OpenAI:"
+                "\n  1. Verify your API key is valid"
+                "\n  2. Check your internet connection"
+                "\n  3. Ensure you have API credits remaining"
+            )
+
+        return base_msg
+
+    def get_llm_info(self) -> str:
+        """Get human-readable LLM information."""
+        return self.llm_config.get_display_name()
+
+
+class RAGSystemError(Exception):
+    """Custom exception for RAG system errors."""
+    pass
+
+
+# Factory function for backward compatibility
+def create_rag_system(
+        vector_store: Chroma,
+        mode: str = "local",
+        api_key: Optional[str] = None,
+        model_name: Optional[str] = None,
+        bm25_index: Optional[Any] = None,
+        bm25_chunks: Optional[List[Document]] = None,
+) -> RAGSystem:
+    """
+    Factory function to create RAGSystem with legacy mode parameter.
+
+    This maintains backward compatibility while using the new architecture.
+    New code should use RAGSystem(llm_config=...) directly.
+
+    Args:
+        vector_store: ChromaDB vector store
+        mode: "local", "google", or "openai"
+        api_key: API key for cloud providers
+        model_name: Optional model name override
+        bm25_index: Optional BM25 index
+        bm25_chunks: Optional BM25 documents
+
+    Returns:
+        Configured RAGSystem instance
+    """
+    from llm_factory import LLMFactory
+
+    llm_config = LLMFactory.create_from_mode(
+        mode=mode,
+        api_key=api_key,
+        model_name=model_name,
+    )
+
+    return RAGSystem(
+        vector_store=vector_store,
+        llm_config=llm_config,
+        bm25_index=bm25_index,
+        bm25_chunks=bm25_chunks,
+    )

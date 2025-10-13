@@ -15,12 +15,13 @@ A flexible RAG-based document question-answering system that supports both **loc
 pda/
 ├── app.py # Main application with mode selection
 ├── document_processor.py # Document loading and processing
-├── rag_system.py # RAG implementation with dual-mode support
+├── hybrid_retriever.py # Retriever pipeline
+├── llm_factory.py # Factory functions to setup LLMs
+├── rag_system.py # RAG implementation
 ├── requirements.txt # Project dependencies
 ├── .env # Environment variables (API keys)
 └── documents/ # Your PDFs and text files go here
 ```
-
 
 ## Setup
 
@@ -69,6 +70,23 @@ ollama>=0.1.0
 
 ## Configuration
 
+### For Local Mode (Private)
+
+#### Install Ollama:
+
+* Download from [ollama.ai](https://ollama.ai)
+* Pull a lightweight model:
+
+```bash
+# For low-power machines:
+ollama pull phi3:mini
+
+# For better quality (requires more RAM):
+ollama pull llama3.1:8b-instruct-q4_K_M
+```
+
+---
+
 ### For Google Generative AI Mode (Cloud)
 
 #### Get Google API Key:
@@ -87,23 +105,6 @@ GOOGLE_API_KEY=your_google_api_key_here
 * Cost-effective: Generous free tier
 * Fast inference: Optimized for production use
 * Regular updates: Access to latest model improvements
-
----
-
-### For Local Mode (Private)
-
-#### Install Ollama:
-
-* Download from [ollama.ai](https://ollama.ai)
-* Pull a lightweight model:
-
-```bash
-# For low-power machines:
-ollama pull phi3:mini
-
-# For better quality (requires more RAM):
-ollama pull llama3.1:8b-instruct-q4_K_M
-```
 
 ---
 
@@ -153,8 +154,6 @@ model_options = {
 ### Local Models (Recommended for Low-Power Systems):
 
 * `phi3:mini (3.8B)` – Best for low-power systems
-* `llama3.2:3b (3B)` – New, optimized
-* `qwen2.5:0.5b (0.5B)` – Minimal requirements
 * `llama3.1:8b-instruct-q4_K_M (8B)` – Better quality (needs 8GB+ RAM)
 
 ---
