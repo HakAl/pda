@@ -10,7 +10,17 @@ from langchain_ollama import OllamaLLM
 from rank_bm25 import BM25Okapi
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import multiprocessing as mp
+
+try:
+    from langchain_community.document_loaders import (
+        Docx2txtLoader,
+        CSVLoader
+    )
+
+    EXTRA_LOADERS_AVAILABLE = True
+except ImportError:
+    EXTRA_LOADERS_AVAILABLE = False
+    print("⚠️  Additional document loaders not available. Install with: pip install docx2txt unstructured")
 
 
 class DocumentProcessor:
@@ -25,6 +35,12 @@ class DocumentProcessor:
         )
         self.bm25_index = None
         self.bm25_chunks = None
+
+        self.supported_extensions = {
+            '.pdf', '.txt',
+            '.docx', '.doc',
+            '.csv'
+        }
 
     def _setup_embeddings(self):
         """Setup embeddings with caching enabled"""
@@ -49,10 +65,12 @@ class DocumentProcessor:
         file_list = [
             os.path.join(documents_folder, f)
             for f in os.listdir(documents_folder)
-            if f.lower().endswith(('.pdf', '.txt'))
+            if any(f.lower().endswith(ext) for ext in self.supported_extensions)
         ]
 
         if not file_list:
+            print(f"ℹ️  No supported files found in '{documents_folder}'")
+            print(f"   Supported formats: {', '.join(sorted(self.supported_extensions))}")
             return []
 
         documents = []
@@ -84,11 +102,16 @@ class DocumentProcessor:
         """Load a single document with error handling"""
         try:
             filename = os.path.basename(file_path)
+            file_ext = os.path.splitext(file_path)[1].lower()
 
-            if file_path.lower().endswith('.pdf'):
+            if file_ext == '.pdf':
                 loader = PyPDFLoader(file_path)
-            elif file_path.lower().endswith('.txt'):
+            elif file_ext == '.txt':
                 loader = TextLoader(file_path, encoding='utf-8')
+            elif file_ext in ['.docx', '.doc']:
+                return self._load_word_simple(file_path, filename)
+            elif file_ext == '.csv':
+                loader = CSVLoader(file_path)
             else:
                 return []
 
@@ -98,12 +121,57 @@ class DocumentProcessor:
             for doc in loaded_docs:
                 doc.metadata['source'] = filename
                 doc.metadata['file_path'] = file_path
+                doc.metadata['file_type'] = file_ext
 
             return loaded_docs
 
         except Exception as e:
             # Re-raise to be caught by executor
             raise Exception(f"Failed to load {os.path.basename(file_path)}: {str(e)}")
+
+    def _load_word_simple(self, file_path: str, filename: str) -> List[Document]:
+        """Simple Word document loader using python-docx directly"""
+        try:
+            from docx import Document as DocxDocument
+
+            doc = DocxDocument(file_path)
+            full_text = []
+
+            # Extract text from paragraphs
+            for paragraph in doc.paragraphs:
+                if paragraph.text.strip():
+                    full_text.append(paragraph.text)
+
+            # Extract text from tables
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = []
+                    for cell in row.cells:
+                        if cell.text.strip():
+                            row_text.append(cell.text)
+                    if row_text:
+                        full_text.append(" | ".join(row_text))
+
+            content = "\n".join(full_text)
+
+            if not content.strip():
+                raise Exception("No readable text found in Word document")
+
+            return [Document(
+                page_content=content,
+                metadata={
+                    'source': filename,
+                    'file_path': file_path,
+                    'file_type': '.docx'
+                }
+            )]
+
+        except ImportError:
+            raise ImportError("python-docx required for Word documents. Install: pip install python-docx")
+        except Exception as e:
+            raise Exception(f"Word document parsing error: {str(e)}")
+
+
 
     def _build_bm25_index(self, chunks: List[Document]) -> Tuple[BM25Okapi, List[Document]]:
         """Build BM25 index with pre-tokenized corpus"""
@@ -129,16 +197,30 @@ class DocumentProcessor:
         print(f"✅ Loaded {len(documents)} document pages")
         print("✂️  Splitting into chunks...")
 
-        # Split without nested progress bar
-        chunks = self._split_documents_batch(documents)
-        print(f"✅ Created {len(chunks)} chunks")
+        # Separate documents that should be split vs. those already pre-chunked
+        docs_to_split = []
+        pre_chunked_docs = []
 
-        # Build BM25 index
-        self.bm25_index, self.bm25_chunks = self._build_bm25_index(chunks)
+        for doc in documents:
+            if doc.metadata.get('doc_type') in ['sheet_overview', 'column_descriptions', 'data_chunk']:
+                pre_chunked_docs.append(doc)
+            else:
+                docs_to_split.append(doc)
+
+        # Split documents that need splitting
+        split_chunks = self._split_documents_batch(docs_to_split)
+
+        # Combine all chunks: those from the splitter and those pre-chunked
+        all_final_chunks = split_chunks + pre_chunked_docs
+
+        print(f"✅ Created {len(all_final_chunks)} chunks (including pre-chunked Excel data)")
+
+        # Build BM25 index - use the combined list
+        self.bm25_index, self.bm25_chunks = self._build_bm25_index(all_final_chunks)
 
         # Create vector store with batched embeddings
         print("🗄️  Creating vector database...")
-        vector_store = self._create_vectorstore_batched(chunks)
+        vector_store = self._create_vectorstore_batched(all_final_chunks)
 
         print("✅ Vector database created successfully!")
         return vector_store, self.bm25_index, self.bm25_chunks

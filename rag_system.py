@@ -90,7 +90,7 @@ class RAGSystem:
         try:
             from langchain_ollama import OllamaLLM
 
-            model = model_name or "phi3:mini"
+            model = model_name or "llama3.1:8b"
             return OllamaLLM(
                 model=model,
                 temperature=0.1,
@@ -106,11 +106,10 @@ class RAGSystem:
 
     def _setup_prompt(self, mode: str) -> PromptTemplate:
         template = (
-            "Context: {context}\n\nQuestion: {question}\n\n"
-            "Answer only from the context above.  "
-            "If the context lacks the answer, say exactly: "
-            "'I cannot find this information in the provided documents.'\n"
-            "Answer: "
+            "Context:\n{context}\n\n"
+            "Question: {question}\n\n"
+            "Please answer the question using only the provided context. If the answer is not in the context, state that you cannot find the information.\n"
+            "Answer:"
         )
         if mode == "google":  # longer prompt for cloud model
             template = (

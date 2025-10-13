@@ -112,7 +112,7 @@ ollama pull llama3.1:8b
 1. Add your documents:
 
    * Create a `documents` folder in your project
-   * Add PDFs and text files you want to query
+   * Add PDFs, Word, CSV, and text files you want to query
 
 2. Run the application:
 
@@ -163,12 +163,12 @@ model_options = {
 
 You now have a **hybrid document Q&A system**! You can extend it by:
 
-* Adding support for more file types (Word, Excel, csv)
 * Implementing a web interface with Streamlit
 * Adding document management (add/remove documents)
 * Implementing conversation history
 * JSON grammar constraint (Ollama feature)
 * Strip images, headers, footers before chunking
+* Add support for Excel
 
 ---
 
