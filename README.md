@@ -31,10 +31,10 @@ cd pda
 ```
 
 ### Create virtual environment (optional but recommended)
-bash
+```bash
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
-
+```
 
 ### Install Required Packages
 
@@ -47,15 +47,22 @@ pip install -r requirements.txt
 ## Requirements (`requirements.txt`)
 
 ```text
-langchain>=0.1.0  
-langchain-community>=0.0.10  
-langchain-google-genai>=0.0.4  
-chromadb>=0.4.0  
-pypdf>=3.0.0  
-python-dotenv>=1.0.0  
-sentence-transformers>=2.2.0  
-ollama>=0.1.0  
-google-generativeai>=0.3.0
+langchain>=0.1.0
+langchain-community>=0.0.20
+langchain-chroma>=0.1.0
+langchain-core>=0.1.0
+langchain-huggingface>=0.1.0
+langchain-ollama>=0.1.0
+sentence-transformers>=2.2.0
+rank-bm25>=0.2.1
+chromadb>=0.4.0
+tqdm>=4.65.0
+python-dotenv>=1.0.0
+numpy>=1.21.0
+huggingface-hub>=0.16.0
+torch>=1.9.0
+transformers>=4.21.0
+ollama>=0.1.0
 ```
 
 ---
@@ -120,16 +127,6 @@ python app.py
 
 ---
 
-## Example Usage
-
-Once running, you can ask questions like:
-
-* *"What are the main points from the document about project planning?"*
-* *"Summarize the key findings from the research paper"*
-* *"What does the document say about machine learning best practices?"*
-
----
-
 ## Mode Comparison
 
 | Aspect       | Local Mode             | Google Gen AI Mode            |
@@ -162,36 +159,16 @@ model_options = {
 
 ---
 
-## Performance Tips for Low-Power Machines
-
-* Use smaller models: `phi3:mini` or `llama3.2:3b`
-* Limit chunk size: 512–1000 characters
-* Reduce retrieved documents: Top 2–3 matches only
-* Process in batches for large document collections
-* Choose **Local Mode**: For privacy + enough RAM
-* Choose **Google Gen AI**: For speed + internet access
-
----
-
-## Switching Modes
-
-You can easily switch between modes by:
-
-* Restarting the application
-* Choosing your preferred mode at startup
-* Using different `.env` configurations for different use cases
-
----
-
 ## Next Steps
 
 You now have a **hybrid document Q&A system**! You can extend it by:
 
-* Adding support for more file types (Word, Excel)
+* Adding support for more file types (Word, Excel, csv)
 * Implementing a web interface with Streamlit
 * Adding document management (add/remove documents)
 * Implementing conversation history
-* Adding batch processing for large document collections
+* JSON grammar constraint (Ollama feature)
+* Strip images, headers, footers before chunking
 
 ---
 
@@ -215,17 +192,4 @@ You now have a **hybrid document Q&A system**! You can extend it by:
   • U.S. government publications (reports, laws, policies)  
   • Format: PDF/TXT (public domain)  
   • Examples: NASA, DOE, and federal agency archives  
-
-[//]: # (todos ?)
-----------------------------------------------------
-JSON grammar constraint (Ollama feature)
-----------------------------------------------------
-Force the model to emit pure JSON: {"answer": "...", "certainty": "high|low"}  
-Ollama can constrain sampling with a JSON schema:
-
-----------------------------------------------------
-Strip images, headers, footers before chunking
-----------------------------------------------------
-PyPDFLoader keeps them.  Add a small cleaner:
-
-----------------------------------------------------
+------

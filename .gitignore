@@ -98,6 +98,8 @@ chroma_db/
 chroma_db/*
 documents/
 documents/*
+model_cache/
+model_cache/*
 *.pdf               # PDF files in root (keep if you want to exclude all PDFs)
 *.txt               # Text files in root (keep if you want to exclude all TXT files)
 
