@@ -128,51 +128,14 @@ class RAGSystem:
     # ------------------------------------------------------------------
     #  Retriever (built once)
     # ------------------------------------------------------------------
-    def _build_retriever(self) -> ContextualCompressionRetriever:
-        reranker = _get_reranker()
-        bm25_index = self.bm25_index
-        bm25_chunks = self.bm25_chunks
+    def _build_retriever(self) -> BaseRetriever:
+        from hybrid_retriever import create_hybrid_retrieval_pipeline
 
-        class FastCompressor(BaseDocumentCompressor):
-            def compress_documents(
-                    self,
-                    docs: List[Document],
-                    query: str,
-                    *,
-                    callbacks: Optional[CallbackManagerForRetrieverRun] = None,
-            ) -> List[Document]:
-                merged, seen = list(docs), {d.page_content for d in docs}
-
-                # quick BM25 top-up
-                if bm25_index and len(merged) < 4:
-                    scores = bm25_index.get_scores(query.lower().split())
-                    k = min(2, len(scores))
-                    if k:
-                        top_idx = np.argpartition(scores, -k)[-k:][::-1]
-                        for i in top_idx:
-                            if len(merged) >= 4:
-                                break
-                            c = bm25_chunks[i]
-                            if c.page_content not in seen:
-                                merged.append(c)
-                                seen.add(c.page_content)
-
-                # rerank
-                if len(merged) > 1:
-                    pairs = [(query, d.page_content) for d in merged]
-                    scores = reranker.predict(pairs, batch_size=8, show_progress_bar=False)
-                    best = np.argpartition(scores, -2)[-2:][::-1]
-                    return [merged[i] for i in best]
-                return merged
-
-        base_retriever = self.vector_store.as_retriever(
-            search_type="mmr",
-            search_kwargs={"k": 4, "fetch_k": 12, "lambda_mult": 0.5},
-        )
-        return ContextualCompressionRetriever(
-            base_compressor=FastCompressor(),
-            base_retriever=base_retriever,
-            callbacks=[],  # disable debug overhead
+        return create_hybrid_retrieval_pipeline(
+            vector_store=self.vector_store,
+            bm25_index=self.bm25_index,
+            bm25_chunks=self.bm25_chunks,
+            use_reranking=True,  # Make this configurable if needed
         )
 
     # ------------------------------------------------------------------
@@ -197,7 +160,6 @@ class RAGSystem:
             return getattr(self.llm, "model", "gemini-2.0-flash-lite")
         return getattr(self.llm, "model", "phi3:mini")
 
-    @lru_cache(maxsize=128)
     def ask_question(self, question: str, profile: bool = False) -> dict[str, Any]:  # Added profile flag
         t0 = time.perf_counter()
 
