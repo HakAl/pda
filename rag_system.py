@@ -1,22 +1,14 @@
-"""
-RAG System with dependency injection and clean separation of concerns.
-"""
-
 import time
 from typing import Any, Dict, List, Optional
 from langchain.chains import RetrievalQA
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_core.language_models import BaseLanguageModel
-from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableSerializable
 from llm_factory import LLMConfig
 
 
 class RAGSystem:
     """
-    RAG system with dependency injection for LLM configuration.
-
     This class focuses purely on the QA pipeline, delegating:
     - LLM configuration to LLMConfig
     - Retrieval to HybridRetriever (injected)
@@ -31,8 +23,6 @@ class RAGSystem:
             bm25_chunks: Optional[List[Document]] = None,
     ):
         """
-        Initialize RAG system with dependency injection.
-
         Args:
             vector_store: ChromaDB vector store
             llm_config: LLM configuration object (handles creation + prompts)
@@ -161,8 +151,6 @@ def create_rag_system(
         bm25_chunks: Optional[List[Document]] = None,
 ) -> RAGSystem:
     """
-    Factory function to create RAGSystem with legacy mode parameter.
-
     This maintains backward compatibility while using the new architecture.
     New code should use RAGSystem(llm_config=...) directly.
 

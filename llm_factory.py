@@ -1,10 +1,3 @@
-"""
-LLM Factory and Configuration.
-
-This module provides clean dependency injection for LLM instances,
-eliminating mode switching logic from the RAG system.
-"""
-
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Optional

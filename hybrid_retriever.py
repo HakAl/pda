@@ -1,10 +1,3 @@
-"""
-Hybrid Retriever combining dense vector search with BM25 sparse retrieval.
-
-This module separates retrieval concerns from reranking, making the system
-more testable and flexible.
-"""
-
 from pydantic import Field
 from typing import List, Optional
 import numpy as np
