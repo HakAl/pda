@@ -29,24 +29,28 @@ class DocumentQAAssistant:
         )
         
         # Try to load existing vector store
-        vector_store = self.processor.load_existing_vectorstore()
-        
-        if vector_store is None:
+        # Try to load existing vector store + BM25
+        vector_store, bm25_index, bm25_chunks = self.processor.load_existing_vectorstore()
+
+        if vector_store is None:  # nothing on disk
             print("\nNo existing database found. Processing documents...")
             if not os.path.exists("./documents"):
                 os.makedirs("./documents")
-                print("📁 Created 'documents' folder. Please add your PDF/text files there and restart.")
+                print("📁 Created 'documents' folder. Please add files there and restart.")
                 return
-            
-            vector_store = self.processor.process_documents()
+
+            # ***NEW*** returns triple
+            vector_store, bm25_index, bm25_chunks = self.processor.process_documents("./documents")
             if vector_store is None:
                 return
-        
-        # Initialize RAG system with chosen mode
+
+        # Initialize RAG system with BM25 objects
         self.rag_system = RAGSystem(
             vector_store=vector_store,
             mode=self.current_mode,
-            api_key=self.api_key if self.current_mode == "google" else None
+            api_key=self.api_key if self.current_mode == "google" else None,
+            bm25_index=bm25_index,
+            bm25_chunks=bm25_chunks
         )
         
         print(f"\n✅ {self.current_mode.upper()} Mode RAG System ready!")
@@ -158,16 +162,18 @@ class DocumentQAAssistant:
             self.setup()
             if self.rag_system:
                 self.chat_loop()
-    
+
     def reload_documents(self):
-        """Reload and reprocess documents"""
+        """Reprocess docs and rebuild both stores."""
         print("🔄 Reloading documents...")
-        vector_store = self.processor.process_documents()
-        if vector_store:
+        vs, bm25_idx, bm25_docs = self.processor.process_documents("./documents")
+        if vs:
             self.rag_system = RAGSystem(
-                vector_store=vector_store,
+                vector_store=vs,
                 mode=self.current_mode,
-                api_key=self.api_key if self.current_mode == "google" else None
+                api_key=self.api_key if self.current_mode == "google" else None,
+                bm25_index=bm25_idx,
+                bm25_chunks=bm25_docs
             )
             print("✅ Documents reloaded successfully!")
     

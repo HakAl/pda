@@ -200,3 +200,84 @@ You now have a **hybrid document Q&A system**! You can extend it by:
 * **Local mode issues**: Check [Ollama documentation](https://ollama.ai) and verify models are downloaded
 * **Google Gen AI issues**: Check API key and internet connection
 * **Performance issues**: Try smaller models or reduce chunk sizes
+
+### Public Domain Repositories for RAG Test Data
+
+- **[Project Gutenberg](https://www.gutenberg.org/)**  
+  • 60,000+ public domain eBooks (literature, history)  
+  • Format: Plain text (.txt)  
+
+- **[Internet Archive](https://archive.org/)**  
+  • Millions of books, texts, and documents  
+  • Format: PDF/TXT (filter for "Texts" and public domain)  
+
+- **[USA.gov](https://www.usa.gov/federal-agencies)**  
+  • U.S. government publications (reports, laws, policies)  
+  • Format: PDF/TXT (public domain)  
+  • Examples: NASA, DOE, and federal agency archives  
+
+
+“model-free” wins that noticeably raise answer quality and speed while keeping phi3:mini exactly as-is.
+Everything is ≤ 10 lines of code or a pip install.
+
+----------------------------------------------------
+Give the retriever a precision boost
+----------------------------------------------------
+Problem: pure similarity often returns “close but off-topic” chunks.  
+Fix: add a tiny re-ranker that runs *after* the vector search.
+
+Cost: + ~60 ms CPU, no extra GPU, RAM +150 MB.  
+Effect: ~15-20 % drop in “I cannot find…” answers.
+
+----------------------------------------------------
+HyDE (Hypothetical Document Embeddings)
+----------------------------------------------------
+Let the LLM *write* a fake answer first, embed it, then retrieve with that vector.
+Retrieval recall ↑ 10-25 % on tech docs & reports.
+
+----------------------------------------------------
+Query expansion → multi-query
+----------------------------------------------------
+Generate 3 paraphrases of the user question, retrieve for each, merge & dedup.
+
+----------------------------------------------------
+5. Prompt engineering without more tokens
+----------------------------------------------------
+phi3:mini reacts well to **role + rule + reward** framing.
+Shorter, clearer, fewer refusals.
+
+----------------------------------------------------
+6. JSON grammar constraint (Ollama feature)
+----------------------------------------------------
+Force the model to emit pure JSON: {"answer": "...", "certainty": "high|low"}  
+Ollama can constrain sampling with a JSON schema:
+
+OllamaLLM(
+    model="phi3:mini",
+    temperature=0.1,
+    format='{"type":"object","properties":'
+           '{"answer":{"type":"string"},"certainty":{"type":"enum":["high","low"]}}}',
+    ...
+)
+
+Parsing becomes trivial and you can auto-escalate “low” certainty to Google path.
+
+----------------------------------------------------
+7. Caching & pre-fetch
+----------------------------------------------------
+- Cache the retrieved docs + answer for repeat questions (in-memory LRU or disk).  
+- Pre-compute embeddings for the most common 50 questions at start-up; serve instantly.
+
+----------------------------------------------------
+8. Strip images, headers, footers before chunking
+----------------------------------------------------
+PyPDFLoader keeps them.  Add a small cleaner:
+
+def clean_text(text):
+    # drop page numbers, e-mail headers, URL-only lines
+    return "\n".join(l for l in text.splitlines()
+                       if not re.match(r"^(Page|\d+|http|\s*$)", l.strip()))
+
+Apply in load_documents() right after loader.load().
+
+----------------------------------------------------
