@@ -102,7 +102,7 @@ GOOGLE_API_KEY=your_google_api_key_here
 ollama pull phi3:mini
 
 # For better quality (requires more RAM):
-ollama pull llama3.1:8b
+ollama pull llama3.1:8b-instruct-q4_K_M
 ```
 
 ---
@@ -155,7 +155,7 @@ model_options = {
 * `phi3:mini (3.8B)` – Best for low-power systems
 * `llama3.2:3b (3B)` – New, optimized
 * `qwen2.5:0.5b (0.5B)` – Minimal requirements
-* `llama3.1:8b (8B)` – Better quality (needs 8GB+ RAM)
+* `llama3.1:8b-instruct-q4_K_M (8B)` – Better quality (needs 8GB+ RAM)
 
 ---
 
