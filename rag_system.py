@@ -10,7 +10,6 @@ from langchain_core.documents import Document
 from langchain_core.language_models import BaseLanguageModel
 from langchain.prompts import PromptTemplate
 from langchain_core.runnables import RunnableSerializable
-
 from llm_factory import LLMConfig
 
 

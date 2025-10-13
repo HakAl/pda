@@ -13,6 +13,7 @@ A flexible RAG-based document question-answering system that supports both **loc
 ## Architecture
 ```
 pda/
+├── __init__.py  
 ├── app.py # Main application with mode selection
 ├── document_processor.py # Document loading and processing
 ├── hybrid_retriever.py # Retriever pipeline
@@ -20,7 +21,10 @@ pda/
 ├── rag_system.py # RAG implementation
 ├── requirements.txt # Project dependencies
 ├── .env # Environment variables (API keys)
-└── documents/ # Your PDFs and text files go here
+├── documents/ # Your PDFs and text files go here
+└── tests/
+    ├── __init__.py
+    └── test_llm_factory.py
 ```
 
 ## Setup
