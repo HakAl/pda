@@ -3,15 +3,14 @@ from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.retrievers import ContextualCompressionRetriever
 from sentence_transformers import CrossEncoder
-from langchain_core.runnables import RunnableSequence
 from langchain_core.documents.compressor import BaseDocumentCompressor
-from langchain.retrievers import MultiQueryRetriever
-from langchain.retrievers import EnsembleRetriever
 from langchain_core.retrievers import BaseRetriever
-from pydantic import Field
-import time
-from typing import Any, List
+from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from langchain_core.documents import Document
 from langchain_chroma import Chroma
+import time
+from typing import Any, List, Optional
+import numpy as np
 
 
 class RAGSystem:
@@ -23,22 +22,34 @@ class RAGSystem:
         self.bm25_index = bm25_index
         self.bm25_chunks = bm25_chunks
 
+        # Pre-warm components for faster first response
+        self._pre_warm_components()
+
         # Setup LLM based on mode
         self.llm = self._setup_llm(mode, api_key, model_name)
 
         # Setup prompt based on mode
         self.prompt = self._setup_prompt(mode)
 
-        self.qa_chain = self._setup_qa_chain()
+        self.qa_chain = self._setup_optimized_qa_chain()
 
         print(f"🤖 Loaded {mode.upper()} model: {self._get_model_info()}")
+
+    def _pre_warm_components(self):
+        """Pre-warm critical components to reduce first-call latency"""
+        # Pre-warm BM25 with a simple query
+        if self.bm25_index:
+            try:
+                _ = self.bm25_index.get_scores("test".split())
+            except:
+                pass
 
     def _setup_llm(self, mode, api_key, model_name):
         """Setup the language model based on mode"""
         if mode == "google":
             return self._setup_google_llm(api_key, model_name)
         else:  # local mode
-            return self._setup_local_llm(model_name)
+            return self._setup_optimized_local_llm(model_name)
 
     def _setup_google_llm(self, api_key, model_name):
         """Setup Google Gemini LLM"""
@@ -60,8 +71,8 @@ class RAGSystem:
         except ImportError:
             raise ImportError("Please install langchain-google-genai: pip install langchain-google-genai")
 
-    def _setup_local_llm(self, model_name):
-        """Setup local Ollama LLM"""
+    def _setup_optimized_local_llm(self, model_name):
+        """Setup optimized local Ollama LLM"""
         try:
             from langchain_ollama import OllamaLLM
 
@@ -70,8 +81,12 @@ class RAGSystem:
             return OllamaLLM(
                 model=model,
                 temperature=0.1,
-                num_predict=800,  # Limit output length
-                num_thread=4,  # Use fewer threads for low-power
+                num_predict=600,  # Reduced from 800 for faster responses
+                num_thread=6,  # Increased for better CPU utilization
+                num_gpu=1,  # Use GPU if available
+                top_k=20,
+                top_p=0.9,
+                repeat_penalty=1.1,
             )
         except ImportError:
             raise ImportError("Please install ollama: pip install ollama")
@@ -111,54 +126,55 @@ Answer: """
             input_variables=["context", "question"]
         )
 
-    def _setup_qa_chain(self):
-        """Fast path: BM25 pre-filter → MMR on 20 candidates → TinyBERT rerank"""
-        import time
-
-        # cheap keyword pre-filter: 6609 → 20 docs
-        t0 = time.perf_counter()
-        scores = self.bm25_index.get_scores("test query".lower().split())
-        top_idx = sorted(range(len(scores)), key=scores.__getitem__, reverse=True)[:20]
-        candidates = [self.bm25_chunks[i] for i in top_idx]
-        print(f"⏱  BM25 filter {time.perf_counter() - t0:.3f}s  ({len(candidates)} docs)")
-
-        # build tiny temp vector store for MMR only on those 20
-        candidate_vs = Chroma.from_documents(candidates, embedding=self.embeddings)
-        mmr_ret = candidate_vs.as_retriever(
-            search_type="mmr",
-            search_kwargs={"k": 2, "fetch_k": 20, "lambda_mult": 0.5}
-        )
-
-        rerank_model = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L-2-v2")
+    def _setup_optimized_qa_chain(self):
+        """Fast retrieval pipeline that works for both small and large datasets"""
+        if not hasattr(self, '_reranker'):
+            self._reranker = CrossEncoder("cross-encoder/ms-marco-TinyBERT-L-2-v2")
 
         bm25_index = self.bm25_index
         bm25_chunks = self.bm25_chunks
+        reranker = self._reranker
 
-        class CrossEncoderCompressor(BaseDocumentCompressor):
+        class FastCrossEncoderCompressor(BaseDocumentCompressor):
             def compress_documents(self, docs, query, *, callbacks=None):
-                # start with the *incoming* docs (already good MMR hits)
-                merged = list(docs)  # keep order
-                seen = {d.page_content for d in docs}  # fast lookup
+                merged = list(docs)
+                seen = {d.page_content for d in docs}
 
-                # add top-2 BM25 **only** if new
-                bm25_scores = bm25_index.get_scores(query.lower().split())
-                for i in sorted(range(len(bm25_scores)), key=bm25_scores.__getitem__, reverse=True)[:2]:
-                    c = bm25_chunks[i]
-                    if c.page_content not in seen:
-                        merged.append(c)
-                        seen.add(c.page_content)
-                        if len(merged) >= 3:  # never > 4
-                            break
+                # Fast BM25 augmentation - minimal overhead
+                if bm25_index and len(merged) < 3:
+                    bm25_scores = bm25_index.get_scores(query.lower().split())
+                    num_docs = len(bm25_scores)
+                    k_augment = min(2, num_docs)
+                    if k_augment > 0:
+                        top_indices = np.argpartition(bm25_scores, -k_augment)[-k_augment:][::-1]
+                        for i in top_indices:
+                            if len(merged) >= 3:
+                                break
+                            candidate = bm25_chunks[i]
+                            if candidate.page_content not in seen:
+                                merged.append(candidate)
+                                seen.add(candidate.page_content)
 
-                # rerank the merged set (≤ original + 2)
-                pairs = [(query, d.page_content) for d in merged]
-                scores = rerank_model.predict(pairs)
-                top_idx = sorted(range(len(scores)), key=scores.__getitem__, reverse=True)[:2]
-                return [merged[i] for i in top_idx]
+                # Fast reranking
+                if len(merged) > 1:
+                    pairs = [(query, doc.page_content) for doc in merged]
+                    scores = reranker.predict(pairs, batch_size=8, show_progress_bar=False)
+                    top_idx = np.argpartition(scores, -2)[-2:][::-1]
+                    result = [merged[i] for i in top_idx]
+                else:
+                    result = merged
+
+                return result
+
+        # Use fast, consistent parameters that work at any scale
+        base_retriever = self.vector_store.as_retriever(
+            search_type="mmr",
+            search_kwargs={"k": 2, "fetch_k": 8, "lambda_mult": 0.5}
+        )
 
         compression_retriever = ContextualCompressionRetriever(
-            base_compressor=CrossEncoderCompressor(),
-            base_retriever=mmr_ret
+            base_compressor=FastCrossEncoderCompressor(),
+            base_retriever=base_retriever
         )
 
         return RetrievalQA.from_chain_type(
