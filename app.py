@@ -3,6 +3,8 @@ from document_processor import DocumentProcessor
 from rag_system import RAGSystem
 from domain import QAService
 from cli import CLI
+from document_store import DocumentStore
+from rag_system import RAGSystem
 
 
 def main():
@@ -36,11 +38,14 @@ def main():
         return
 
     try:
-        rag_system = RAGSystem(
+        document_store = DocumentStore(
             vector_store=vector_store,
-            llm_config=llm_config,
             bm25_index=bm25_index,
             bm25_chunks=bm25_chunks
+        )
+        rag_system = RAGSystem(
+            document_store=document_store,
+            llm_config=llm_config
         )
         qa_service = QAService(rag_system)
     except Exception as e:
@@ -50,9 +55,7 @@ def main():
     app_cli = CLI(
         qa_service=qa_service,
         processor=processor,
-        initial_vector_store=vector_store,
-        initial_bm25_index=bm25_index,
-        initial_bm25_chunks=bm25_chunks
+        document_store=document_store
     )
 
     app_cli.run()

@@ -1,13 +1,12 @@
 import os
 import sys
 from typing import Optional
-
-# Dependency Injections
 from domain import QAService
 from document_processor import DocumentProcessor
 from llm_factory import LLMFactory, LLMConfig, check_ollama_available, GoogleGenAIConfig, OllamaConfig
 from config import app_config
-from rag_system import RAGSystem  # Needed for re-instantiation
+from rag_system import RAGSystem
+from document_store import DocumentStore
 
 
 class CLI:
@@ -19,17 +18,16 @@ class CLI:
             self,
             qa_service: QAService,
             processor: DocumentProcessor,
-            initial_vector_store,
-            initial_bm25_index,
-            initial_bm25_chunks
+            document_store: DocumentStore
     ):
         self.qa_service = qa_service
         self.processor = processor
+        self.document_store = document_store
 
         # Keep state of the document stores for rebuilding services
-        self.vector_store = initial_vector_store
-        self.bm25_index = initial_bm25_index
-        self.bm25_chunks = initial_bm25_chunks
+        self.vector_store = document_store.vector_store
+        self.bm25_index = document_store.bm25_index
+        self.bm25_chunks = document_store.bm25_chunks
 
         self.llm_config = qa_service.rag_system.llm_config
 

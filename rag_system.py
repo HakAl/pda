@@ -9,6 +9,7 @@ from langchain_core.runnables import RunnableSerializable
 from llm_factory import LLMConfig
 from langchain.callbacks.base import BaseCallbackHandler
 from query_cache import SemanticQueryCache
+from document_store import DocumentStore
 
 # --- NLTK Integration for Preprocessing ---
 try:
@@ -49,21 +50,17 @@ class RAGSystem:
 
     def __init__(
             self,
-            vector_store: Chroma,
+            document_store: DocumentStore,
             llm_config: LLMConfig,
-            bm25_index: Optional[Any] = None,
-            bm25_chunks: Optional[List[Document]] = None,
             enable_cache: bool = True,
             cache_similarity_threshold: float = 0.85,
             cache_max_size: int = 100,
     ):
-        self.vector_store = vector_store
+        self.document_store = document_store
         self.llm_config = llm_config
-        self.bm25_index = bm25_index
-        self.bm25_chunks = bm25_chunks or []
         self.llm = llm_config.create_llm()
         self.prompt = llm_config.get_prompt_template()
-        self._retriever = self._build_retriever()
+        self._retriever = self.document_store.get_retriever()
         self._chain: Optional[RunnableSerializable] = None
 
         self.enable_cache = enable_cache
@@ -72,26 +69,13 @@ class RAGSystem:
                 similarity_threshold=cache_similarity_threshold,
                 max_size=cache_max_size
             )
-            self.cache.embeddings = self._get_embedding_function()
+            self.cache.embeddings = self.document_store.get_embedding_function()
         else:
             self.cache = None
 
         print(f"🤖 Loaded LLM: {llm_config.get_display_name()}")
         if self.enable_cache:
             print(f"🧠 Semantic cache enabled (threshold: {cache_similarity_threshold})")
-
-    def _get_embedding_function(self):
-        """Extract embedding function from the vector store"""
-        return self.vector_store._embedding_function.embed_documents
-
-    def _build_retriever(self):
-        from hybrid_retriever import create_hybrid_retrieval_pipeline
-        return create_hybrid_retrieval_pipeline(
-            vector_store=self.vector_store,
-            bm25_index=self.bm25_index,
-            bm25_chunks=self.bm25_chunks,
-            use_reranking=True,
-        )
 
     def _get_chain(self) -> RunnableSerializable:
         if self._chain is None:
@@ -311,18 +295,22 @@ def create_rag_system(
         Configured RAGSystem instance
     """
     from llm_factory import LLMFactory
+    from document_store import DocumentStore
 
     llm_config = LLMFactory.create_from_mode(
         mode=mode,
         api_key=api_key,
         model_name=model_name,
     )
-
-    return RAGSystem(
+    doc_store = DocumentStore(
         vector_store=vector_store,
-        llm_config=llm_config,
         bm25_index=bm25_index,
         bm25_chunks=bm25_chunks,
+    )
+
+    return RAGSystem(
+        document_store=doc_store,
+        llm_config=llm_config,
         enable_cache=enable_cache,
         cache_similarity_threshold=cache_similarity_threshold,
         cache_max_size=cache_max_size,
