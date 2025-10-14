@@ -184,6 +184,9 @@ class DocumentQAAssistant:
         return LLMFactory.create_openai(api_key=api_key, model_name=model_name)
 
     def chat_loop(self):
+        """
+        Main loop for the command-line chat interface
+        """
         if self.rag_system is None:
             print("System not ready. Please check if documents are available.")
             return
@@ -209,12 +212,18 @@ class DocumentQAAssistant:
                 elif not question:
                     continue
 
-                print(f"\n🤔 Thinking ({self.llm_config.get_display_name()})...")
-
                 try:
-                    result = self.rag_system.ask_question(question)
+                    # Define a simple callback handler for printing tokens
+                    def stream_handler(token: str):
+                        print(token, end="", flush=True)
 
-                    print(f"\n📚 Answer: {result['answer']}")
+                    # Print the header, then start the stream
+                    print(f"\n📚 Answer: ", end="", flush=True)
+                    result = self.rag_system.ask_question_stream(question, stream_handler)
+
+                    # The answer is streamed above. We add a newline here for clean formatting
+                    # before printing the sources.
+                    print()
 
                     if result['source_documents']:
                         print(f"\n📖 Sources:")
@@ -233,7 +242,7 @@ class DocumentQAAssistant:
                 print("\n\nGoodbye! 👋")
                 break
             except Exception as e:
-                print(f"Unexpected error: {e}")
+                print(f"\nUnexpected error: {e}")
 
     def switch_llm(self):
         print(f"\n🔄 Current LLM: {self.llm_config.get_display_name()}")

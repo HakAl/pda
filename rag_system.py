@@ -1,28 +1,41 @@
 import re
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable
 
 from langchain.chains import RetrievalQA
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.runnables import RunnableSerializable
 from llm_factory import LLMConfig
+from langchain.callbacks.base import BaseCallbackHandler
 
 # --- NLTK Integration for Preprocessing ---
 try:
     from nltk.corpus import stopwords
     from nltk.tokenize import word_tokenize
+
     STOP_WORDS = set(stopwords.words("english"))
 except ImportError:
     print("Warning: 'nltk' library not found. Preprocessing will be limited.")
     print("Please install it with: pip install nltk")
     STOP_WORDS = set()
 except LookupError:
-    print("="*80)
+    print("=" * 80)
     print("nltk data (stopwords, punkt) not found. Please run the following in your Python environment:")
     print("import nltk; nltk.download('stopwords'); nltk.download('punkt')")
-    print("="*80)
+    print("=" * 80)
     STOP_WORDS = set()
+
+
+class TokenStreamCallbackHandler(BaseCallbackHandler):
+    """A custom callback handler to stream tokens to a callback function."""
+
+    def __init__(self, token_callback: Callable[[str], None]):
+        self.token_callback = token_callback
+
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        """Run on new LLM token. Only available when streaming is enabled."""
+        self.token_callback(token)
 
 
 class RAGSystem:
@@ -114,6 +127,38 @@ class RAGSystem:
             result = self._get_chain().invoke({"query": processed_question})
             t1 = time.perf_counter()
             print(f"⏱  QA chain took {t1 - t0:.2f}s")
+            return {
+                "answer": result["result"],
+                "source_documents": result["source_documents"],
+            }
+        except Exception as e:
+            error_msg = self._format_error_message(e)
+            raise RAGSystemError(error_msg) from e
+
+    def ask_question_stream(self, question: str, token_callback: Callable[[str], None]) -> Dict[str, Any]:
+        """
+        Stream answer tokens as they're generated.
+        """
+        t0 = time.perf_counter()
+        try:
+            processed_question = self._preprocess_query(question)
+
+            # Reconfigure LLM with streaming and our custom callback
+            streaming_llm = self.llm_config.create_llm()
+            streaming_llm.callbacks = [TokenStreamCallbackHandler(token_callback)]
+
+            # Create temporary chain with streaming LLM
+            chain = RetrievalQA.from_chain_type(
+                llm=streaming_llm,
+                chain_type="stuff",
+                retriever=self._retriever,
+                chain_type_kwargs={"prompt": self.prompt},
+                return_source_documents=True,
+            )
+
+            result = chain.invoke({"query": processed_question})
+            t1 = time.perf_counter()
+            print(f"\n⏱  Streaming QA chain took {t1 - t0:.2f}s")
             return {
                 "answer": result["result"],
                 "source_documents": result["source_documents"],
