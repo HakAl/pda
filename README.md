@@ -15,13 +15,17 @@ A flexible RAG-based document question-answering system that supports both **loc
 pda/
 ├── __init__.py  
 ├── app.py # Main application with mode selection
+├── cli.py # CLI display
+├── config.py # app config magic numbers 
 ├── document_processor.py # Document loading and processing
+├── document_store.py # Document retrieval
+├── domain.py # QA service
 ├── hybrid_retriever.py # Retriever pipeline
 ├── llm_factory.py # Factory functions to setup LLMs
 ├── rag_system.py # RAG implementation
 ├── query_cache.py # cache implementation
 ├── requirements.txt # Project dependencies
-├── .env # Environment variables (API keys)
+├── requirements-dev.txt # dev dependencies
 ├── documents/ # Your PDFs and text files go here
 └── tests/
     ├── __init__.py
