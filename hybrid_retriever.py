@@ -6,6 +6,7 @@ from langchain_core.documents import Document
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
 from langchain_chroma import Chroma
 from rank_bm25 import BM25Okapi
+from config import app_config
 
 
 class HybridRetriever(BaseRetriever):
@@ -23,11 +24,11 @@ class HybridRetriever(BaseRetriever):
     vector_store: Chroma
     bm25_index: Optional[BM25Okapi] = None
     bm25_chunks: List[Document] = Field(default_factory=list)
-    vector_k: int = 4
-    vector_fetch_k: int = 12
-    bm25_top_k: int = 2
-    lambda_mult: float = 0.5
-    min_docs_before_bm25: int = 4
+    vector_k: int = app_config.retriever.vector_k
+    vector_fetch_k: int = app_config.retriever.vector_fetch_k
+    bm25_top_k: int = app_config.retriever.bm25_top_k
+    lambda_mult: float = app_config.retriever.lambda_mult
+    min_docs_before_bm25: int = app_config.retriever.min_docs_before_bm25
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -44,7 +45,6 @@ class HybridRetriever(BaseRetriever):
             min_docs_before_bm25: Only use BM25 if vector search returns fewer than this
         """
 
-        # Validate BM25 configuration
         if (self.bm25_index is None) != (not self.bm25_chunks):
             raise ValueError("bm25_index and bm25_chunks must both be provided or both be None")
 
@@ -134,9 +134,9 @@ class RerankerCompressor:
 
     def __init__(
         self,
-        model_name: str = "cross-encoder/ms-marco-TinyBERT-L-2-v2",
-        top_k: int = 2,
-        batch_size: int = 8,
+        model_name: str = app_config.reranker.model_name,
+        top_k: int = app_config.reranker.top_k,
+        batch_size: int = app_config.reranker.batch_size,
     ):
         """
         Args:
@@ -189,7 +189,7 @@ class RerankerCompressor:
 _RERANKER_CACHE = {}
 
 def get_reranker(
-    model_name: str = "cross-encoder/ms-marco-TinyBERT-L-2-v2",
+    model_name: str = app_config.reranker.model_name,
     top_k: int = 2,
 ) -> RerankerCompressor:
     """

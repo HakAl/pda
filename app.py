@@ -1,7 +1,7 @@
 import os
 import sys
 from document_processor import DocumentProcessor
-from rag_system import RAGSystem, RAGSystemError
+from config import app_config
 from llm_factory import (
     LLMFactory,
     LLMConfig,
@@ -9,10 +9,7 @@ from llm_factory import (
     GoogleGenAIConfig,
     OllamaConfig
 )
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
+from rag_system import RAGSystem, RAGSystemError
 
 
 class DocumentQAAssistant:
@@ -118,7 +115,7 @@ class DocumentQAAssistant:
         return LLMFactory.create_ollama(model_name=model_name)
 
     def _configure_google(self) -> GoogleGenAIConfig:
-        api_key = os.getenv("GOOGLE_API_KEY")
+        api_key = app_config.config.google_api_key
 
         if not api_key:
             print("❌ GOOGLE_API_KEY not found in .env file")

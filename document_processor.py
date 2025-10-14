@@ -15,7 +15,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
 from rank_bm25 import BM25Okapi
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from config import app_config
 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -83,8 +83,8 @@ class DocumentProcessor:
         self.api_key = api_key
         self.embeddings = self._setup_embeddings()
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=800,
-            chunk_overlap=100,
+            chunk_size=app_config.chunking.chunk_size,
+            chunk_overlap=app_config.chunking.chunk_overlap,
             length_function=len,
         )
         self.bm25_index = None
