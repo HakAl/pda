@@ -159,8 +159,11 @@ class RAGSystem:
 
             result = chain.invoke({"query": processed_question})
 
+            # Use collected tokens as the answer instead of result["result"]
+            final_answer = "".join(collected_tokens) if collected_tokens else result.get("result", "")
+
             final_result = {
-                "answer": result["result"],
+                "answer": final_answer,
                 "source_documents": result["source_documents"],
             }
 
