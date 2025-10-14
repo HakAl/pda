@@ -4,7 +4,7 @@ A flexible RAG-based document question-answering system that supports both **loc
 
 ## Features
 
-- **Dual-Mode Operation**: Switch between local processing (private, offline), Google Gen AI, or OpenAI
+- **Multi-Mode Operation**: Switch between local processing (private, offline), Google Gen AI, or OpenAI
 - **Multiple File Support**: PDFs, Word, CSV, and text files
 - **Lightweight Design**: Optimized for low-power machines
 - **Privacy-First**: Local mode keeps all data on your device
@@ -29,7 +29,10 @@ pda/
 ├── documents/ # Your PDFs and text files go here
 └── tests/
     ├── __init__.py
-    └── test_llm_factory.py
+    ├── conftest.py
+    ├── generate_test_data.py
+    ├── test_llm_factory.py
+    └── test_retrieval_performance.py
 ```
 
 ## Setup

@@ -3,6 +3,8 @@ from langchain_core.documents import Document
 from langchain.retrievers import EnsembleRetriever
 from typing import List, Dict, Any, Callable
 from rag_system import RAGSystem, RAGSystemError
+from error_handler import parse_api_error
+
 
 class QAService:
     """
@@ -20,13 +22,11 @@ class QAService:
         try:
             print(f"\n📚 Answer: ", end="", flush=True)
             result = self.rag_system.ask_question_stream(question, stream_handler)
-            print() # Newline after streaming is complete
+            print()
             return result
-        except RAGSystemError as e:
-            print(f"\n❌ Error during answer generation: {str(e)}")
-            return {"answer": "", "source_documents": []}
-        except Exception as e:
-            print(f"\n❌ An unexpected error occurred: {str(e)}")
+        except (RAGSystemError, Exception) as e:
+            user_friendly_message = parse_api_error(e)
+            print(f"\n❌ Error: {user_friendly_message}")
             return {"answer": "", "source_documents": []}
 
     def get_llm_display_name(self) -> str:

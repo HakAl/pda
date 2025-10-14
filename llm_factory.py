@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, List, Any
 from langchain_core.language_models import BaseLanguageModel
 from langchain.prompts import PromptTemplate
 
@@ -281,22 +281,6 @@ class LLMFactory:
             **kwargs
         )
 
-
-def check_ollama_available() -> bool:
-    """
-    Check if Ollama is installed and running.
-
-    Returns:
-        True if Ollama is accessible, False otherwise
-    """
-    try:
-        import ollama
-        ollama.list()
-        return True
-    except Exception:
-        return False
-
-
 def check_google_api_key(api_key: str) -> bool:
     """
     Validate Google API key by attempting to configure.
@@ -314,3 +298,64 @@ def check_google_api_key(api_key: str) -> bool:
         return True
     except Exception:
         return False
+
+def check_ollama_available() -> bool:
+    """
+    Check if Ollama is installed and running.
+
+    Returns:
+        True if Ollama is accessible, False otherwise
+    """
+    try:
+        import ollama
+        ollama.list()
+        return True
+    except Exception:
+        return False
+
+def get_available_ollama_models() -> List[str]:
+    """
+    Fetches the names of all locally available Ollama models.
+    This version is highly defensive to handle variations in the ollama library's output.
+    """
+    try:
+        import ollama
+        response: Any = ollama.list()
+        models_list: List[Any] = []
+
+        if isinstance(response, dict) and 'models' in response:
+            models_list = response['models']
+        elif hasattr(response, 'models'):
+            models_list = response.models
+        else:
+            print(
+                f"\n[DEBUG] Could not find a 'models' list in the response from ollama.list(). Response: {response}\n")
+            return []
+
+        if not isinstance(models_list, list):
+            print(f"\n[DEBUG] The 'models' field found was not a list. Found: {models_list}\n")
+            return []
+
+        model_names: List[str] = []
+        for model_item in models_list:
+            name = None
+            if isinstance(model_item, dict):
+                name = model_item.get('name') or model_item.get('model')
+            elif hasattr(model_item, 'name'):
+                name = model_item.name
+            elif hasattr(model_item, 'model'):
+                name = model_item.model
+
+            if name:
+                model_names.append(name)
+
+        if not model_names and models_list:
+            print("\n[DEBUG] Found a models list, but could not extract any model names from it.\n")
+
+        return model_names
+
+    except Exception as e:
+        print(f"\n[DEBUG] An error occurred while executing ollama.list(): {e}\n")
+        if "Connection refused" in str(e):
+            print("[INFO] Could not connect to Ollama. Please ensure the Ollama application is running.")
+        return []

@@ -1,13 +1,35 @@
+import logging
 import os
 import sys
 from typing import Optional
 from domain import QAService
 from document_processor import DocumentProcessor
-from llm_factory import LLMFactory, LLMConfig, check_ollama_available, GoogleGenAIConfig, OllamaConfig
+from llm_factory import (
+    LLMFactory, LLMConfig, check_ollama_available,
+    GoogleGenAIConfig, OllamaConfig, get_available_ollama_models
+)
 from config import app_config
 from rag_system import RAGSystem
 from document_store import DocumentStore
+try:
+    import google.generativeai as genai
+    from google.api_core import exceptions
+except ImportError:
+    # todo
+    genai = None
+    exceptions = None
 
+
+def setup_logging():
+    """
+    Configures the application's logging to reduce verbosity from libraries.
+    """
+    logging.getLogger("langchain_google_genai").setLevel(logging.ERROR)
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        stream=sys.stdout,
+    )
 
 class CLI:
     """
@@ -35,6 +57,8 @@ class CLI:
         """
         Main loop for the command-line chat interface.
         """
+        setup_logging()
+
         print(f"\n💬 Document Q&A Assistant ({self.qa_service.get_llm_display_name()})")
         print("Type 'quit' to exit, 'help' for commands, 'switch' to change LLM\n")
 
@@ -148,18 +172,95 @@ class CLI:
 
     @staticmethod
     def _configure_ollama() -> Optional[OllamaConfig]:
+        """
+        Lists available Ollama models and prompts the user to select one.
+        """
         if not check_ollama_available():
             print("Ollama not found...")
             return None
-        model_name = "llama3.1:8b-instruct-q4_K_M"  # TODO
-        print(f"✅ Using Ollama model: {model_name}")
-        return LLMFactory.create_ollama(model_name=model_name)
+        available_models = get_available_ollama_models()
+
+        if not available_models:
+            print("\n❌ Could not find any Ollama models.")
+            print("   Please ensure Ollama is running and you have pulled a model.")
+            print("   You can pull a model with: 'ollama run llama3.1'")
+            return None
+
+        print("\n🤖 Select an available Ollama model:")
+        for i, model_name in enumerate(available_models):
+            print(f"  {i + 1}. {model_name}")
+
+        while True:
+            try:
+                choice_str = input(f"\nEnter your choice (1-{len(available_models)}): ").strip()
+                if not choice_str:
+                    continue
+
+                choice_idx = int(choice_str) - 1
+                if 0 <= choice_idx < len(available_models):
+                    selected_model = available_models[choice_idx]
+                    print(f"✅ Using Ollama model: {selected_model}")
+                    return LLMFactory.create_ollama(model_name=selected_model)
+                else:
+                    print(f"❌ Invalid choice. Please enter a number between 1 and {len(available_models)}.")
+            except ValueError:
+                print("❌ Invalid input. Please enter a number.")
+            except KeyboardInterrupt:
+                print("\nSelection cancelled.")
+                return None
 
     @staticmethod
     def _configure_google() -> Optional[GoogleGenAIConfig]:
+        if not genai:
+            print("❌ Google Generative AI library not found.")
+            print("Please install it with: pip install google-generativeai")
+            return None
+
         api_key = app_config.config.google_api_key or input("Enter Google API Key: ").strip()
-        if not api_key: return None
-        model_name = "gemini-1.5-flash-latest"  # Simplified
+        if not api_key:
+            return None
+
+        try:
+            genai.configure(api_key=api_key)
+        except Exception as e:
+            print(f"❌ Failed to configure Google API: {e}")
+            return None
+
+        try:
+            print("Fetching available Google AI models...")
+            available_chat_models = []
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    model_id = m.name.split('/')[-1]
+                    available_chat_models.append((m.display_name, model_id))
+
+        except exceptions.PermissionDenied:
+            print("❌ Authentication failed. Please check your API key.")
+            return None
+        except Exception as e:
+            print(f"❌ Could not fetch models from Google AI: {e}")
+            return None
+
+        if not available_chat_models:
+            print("❌ No compatible chat models found for your account.")
+            return None
+
+        model_map = {
+            str(i + 1): model_info for i, model_info in enumerate(available_chat_models)
+        }
+
+        print("\nPlease select a Google AI model:")
+        for key, (display_name, model_id) in model_map.items():
+            print(f"  [{key}] {display_name} ({model_id})")
+
+        choice = ""
+        while choice not in model_map:
+            choice = input(f"Enter your choice (1-{len(model_map)}): ").strip()
+            if choice not in model_map:
+                print("Invalid selection. Please try again.")
+
+        _, model_name = model_map[choice]
+
         print(f"✅ Using Google model: {model_name}")
         return LLMFactory.create_google(api_key=api_key, model_name=model_name)
 
@@ -167,6 +268,6 @@ class CLI:
     def _configure_openai() -> Optional['OpenAIConfig']:
         api_key = os.getenv("OPENAI_API_KEY") or input("Enter OpenAI API Key: ").strip()
         if not api_key: return None
-        model_name = "gpt-4o-mini"  # Simplified
+        model_name = "gpt-4o-mini"
         print(f"✅ Using OpenAI model: {model_name}")
         return LLMFactory.create_openai(api_key=api_key, model_name=model_name)
