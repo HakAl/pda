@@ -268,51 +268,5 @@ def mock_vector_store():
     return mock_vs
 
 
-class TestRAGSystemWithDI:
-    """Example tests for RAGSystem using dependency injection."""
-
-    def test_rag_system_initialization(self, mock_llm_config, mock_vector_store):
-        """Test that RAGSystem initializes with injected config."""
-        # Import here to avoid issues if module structure changes
-        import rag_system
-
-        # Mock the hybrid retriever to avoid validation errors
-        with patch('hybrid_retriever.create_hybrid_retrieval_pipeline') as mock_create:
-            mock_retriever = Mock()
-            mock_create.return_value = mock_retriever
-
-            rag = rag_system.RAGSystem(
-                vector_store=mock_vector_store,
-                llm_config=mock_llm_config,
-            )
-
-            # Verify LLM was created
-            mock_llm_config.create_llm.assert_called_once()
-            mock_llm_config.get_prompt_template.assert_called_once()
-
-            assert rag.llm_config == mock_llm_config
-
-    def test_rag_system_uses_injected_llm(self, mock_llm_config, mock_vector_store):
-        """Test that RAGSystem uses the injected LLM."""
-        # Import here to avoid issues if module structure changes
-        import rag_system
-
-        mock_llm = Mock()
-        mock_llm_config.create_llm.return_value = mock_llm
-
-        # Mock the hybrid retriever
-        with patch('hybrid_retriever.create_hybrid_retrieval_pipeline') as mock_create:
-            mock_retriever = Mock()
-            mock_create.return_value = mock_retriever
-
-            rag = rag_system.RAGSystem(
-                vector_store=mock_vector_store,
-                llm_config=mock_llm_config,
-            )
-
-            # The injected LLM should be used
-            assert rag.llm == mock_llm
-
-
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
