@@ -22,8 +22,8 @@ pda/
 ├── domain.py # QA service
 ├── hybrid_retriever.py # Retriever pipeline
 ├── llm_factory.py # Factory functions to setup LLMs
-├── rag_system.py # RAG implementation
 ├── query_cache.py # cache implementation
+├── rag_system.py # RAG implementation
 ├── requirements.txt # Project dependencies
 ├── requirements-dev.txt # dev dependencies
 ├── documents/ # Your PDFs and text files go here
