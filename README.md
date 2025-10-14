@@ -76,6 +76,8 @@ huggingface-hub>=0.16.0
 torch>=1.9.0
 transformers>=4.21.0
 ollama>=0.1.0
+python-docx>=1.0.0
+streamlit>=1.28.0
 ```
 
 ---
@@ -91,6 +93,8 @@ ollama>=0.1.0
 
 ```bash
 python app.py
+||
+streamlit run web_app.py
 ```
 
 3. Choose your preferred mode when prompted:
@@ -165,7 +169,6 @@ model_options = {
 
 ## Next Steps
 
-* Implementing a web interface with Streamlit or Flask
 * Adding document management (add/remove documents)
 * Implementing conversation history
 * JSON grammar constraint (Ollama feature)
