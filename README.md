@@ -173,8 +173,6 @@ model_options = {
 
 ## Next Steps
 
-You now have a **hybrid document Q&A system**! You can extend it by:
-
 * Implementing a web interface with Streamlit
 * Adding document management (add/remove documents)
 * Implementing conversation history
