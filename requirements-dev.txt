@@ -1,2 +1,10 @@
 pytest>=7.0.0
 pytest-cov
+
+# For generating test documents
+pikepdf
+python-docx
+
+# For code formatting and linting
+ruff
+black
