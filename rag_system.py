@@ -8,6 +8,7 @@ from langchain_core.documents import Document
 from langchain_core.runnables import RunnableSerializable
 from llm_factory import LLMConfig
 from langchain.callbacks.base import BaseCallbackHandler
+from query_cache import SemanticQueryCache
 
 # --- NLTK Integration for Preprocessing ---
 try:
@@ -52,6 +53,9 @@ class RAGSystem:
             llm_config: LLMConfig,
             bm25_index: Optional[Any] = None,
             bm25_chunks: Optional[List[Document]] = None,
+            enable_cache: bool = True,
+            cache_similarity_threshold: float = 0.85,
+            cache_max_size: int = 100,
     ):
         self.vector_store = vector_store
         self.llm_config = llm_config
@@ -61,7 +65,24 @@ class RAGSystem:
         self.prompt = llm_config.get_prompt_template()
         self._retriever = self._build_retriever()
         self._chain: Optional[RunnableSerializable] = None
+
+        self.enable_cache = enable_cache
+        if self.enable_cache:
+            self.cache = SemanticQueryCache(
+                similarity_threshold=cache_similarity_threshold,
+                max_size=cache_max_size
+            )
+            self.cache.embeddings = self._get_embedding_function()
+        else:
+            self.cache = None
+
         print(f"🤖 Loaded LLM: {llm_config.get_display_name()}")
+        if self.enable_cache:
+            print(f"🧠 Semantic cache enabled (threshold: {cache_similarity_threshold})")
+
+    def _get_embedding_function(self):
+        """Extract embedding function from the vector store"""
+        return self.vector_store._embedding_function.embed_documents
 
     def _build_retriever(self):
         from hybrid_retriever import create_hybrid_retrieval_pipeline
@@ -117,37 +138,33 @@ class RAGSystem:
         print(f"Processed query: '{question}'")
         return question
 
-    def ask_question(self, question: str) -> Dict[str, Any]:
-        """
-        Ask a question and get an answer with sources.
-        """
-        t0 = time.perf_counter()
-        try:
-            processed_question = self._preprocess_query(question)
-            result = self._get_chain().invoke({"query": processed_question})
-            t1 = time.perf_counter()
-            print(f"⏱  QA chain took {t1 - t0:.2f}s")
-            return {
-                "answer": result["result"],
-                "source_documents": result["source_documents"],
-            }
-        except Exception as e:
-            error_msg = self._format_error_message(e)
-            raise RAGSystemError(error_msg) from e
-
     def ask_question_stream(self, question: str, token_callback: Callable[[str], None]) -> Dict[str, Any]:
         """
-        Stream answer tokens as they're generated.
+        Stream answer tokens as they're generated, with semantic caching.
         """
+        if self.enable_cache and self.cache:
+            cached_result = self.cache.get(question)
+            if cached_result:
+                cached_answer = cached_result["answer"]
+                for char in cached_answer:
+                    token_callback(char)
+                    time.sleep(0.01)  # Small delay to simulate streaming
+
+                return cached_result
+
         t0 = time.perf_counter()
         try:
             processed_question = self._preprocess_query(question)
-
-            # Reconfigure LLM with streaming and our custom callback
             streaming_llm = self.llm_config.create_llm()
-            streaming_llm.callbacks = [TokenStreamCallbackHandler(token_callback)]
 
-            # Create temporary chain with streaming LLM
+            collected_tokens = []
+
+            def caching_token_callback(token: str):
+                collected_tokens.append(token)
+                token_callback(token)
+
+            streaming_llm.callbacks = [TokenStreamCallbackHandler(caching_token_callback)]
+
             chain = RetrievalQA.from_chain_type(
                 llm=streaming_llm,
                 chain_type="stuff",
@@ -157,15 +174,71 @@ class RAGSystem:
             )
 
             result = chain.invoke({"query": processed_question})
-            t1 = time.perf_counter()
-            print(f"\n⏱  Streaming QA chain took {t1 - t0:.2f}s")
-            return {
+
+            final_result = {
                 "answer": result["result"],
                 "source_documents": result["source_documents"],
             }
+
+            if self.enable_cache and self.cache:
+                self.cache.set(question, final_result)
+
+            t1 = time.perf_counter()
+            print(f"\n⏱  Streaming QA chain took {t1 - t0:.2f}s")
+            return final_result
+
         except Exception as e:
             error_msg = self._format_error_message(e)
             raise RAGSystemError(error_msg) from e
+
+    def ask_question(self, question: str) -> Dict[str, Any]:
+        """
+        Ask a question and get an answer with sources, with semantic caching.
+        """
+        if self.enable_cache and self.cache:
+            cached_result = self.cache.get(question)
+            if cached_result:
+                return cached_result
+
+        t0 = time.perf_counter()
+        try:
+            processed_question = self._preprocess_query(question)
+            result = self._get_chain().invoke({"query": processed_question})
+
+            final_result = {
+                "answer": result["result"],
+                "source_documents": result["source_documents"],
+            }
+
+
+            if self.enable_cache and self.cache:
+                self.cache.set(question, final_result)
+
+            t1 = time.perf_counter()
+            print(f"⏱  QA chain took {t1 - t0:.2f}s")
+            return final_result
+
+        except Exception as e:
+            error_msg = self._format_error_message(e)
+            raise RAGSystemError(error_msg) from e
+
+    def clear_cache(self):
+        """Clear the semantic cache"""
+        if self.cache:
+            self.cache.cache.clear()
+            print("🧹 Cache cleared")
+
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get cache statistics"""
+        if not self.cache:
+            return {"cache_enabled": False}
+
+        return {
+            "cache_enabled": True,
+            "cache_size": len(self.cache.cache),
+            "max_size": self.cache.max_size,
+            "similarity_threshold": self.cache.threshold
+        }
 
     def _format_error_message(self, error: Exception) -> str:
         if isinstance(error, RAGSystemError):
@@ -215,6 +288,9 @@ def create_rag_system(
         model_name: Optional[str] = None,
         bm25_index: Optional[Any] = None,
         bm25_chunks: Optional[List[Document]] = None,
+        enable_cache: bool = True,
+        cache_similarity_threshold: float = 0.85,
+        cache_max_size: int = 100,
 ) -> RAGSystem:
     """
     This maintains backward compatibility while using the new architecture.
@@ -227,6 +303,9 @@ def create_rag_system(
         model_name: Optional model name override
         bm25_index: Optional BM25 index
         bm25_chunks: Optional BM25 documents
+        cache_max_size:
+        cache_similarity_threshold:
+        enable_cache:
 
     Returns:
         Configured RAGSystem instance
@@ -244,4 +323,7 @@ def create_rag_system(
         llm_config=llm_config,
         bm25_index=bm25_index,
         bm25_chunks=bm25_chunks,
+        enable_cache=enable_cache,
+        cache_similarity_threshold=cache_similarity_threshold,
+        cache_max_size=cache_max_size,
     )
