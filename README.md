@@ -1,14 +1,14 @@
 # Personal Document Q&A Assistant
 
-A flexible RAG-based document question-answering system that supports both **local processing** (via Ollama) and **cloud processing** (via Google Gen AI). Choose the option that best fits your privacy, performance, and hardware needs.
+A flexible RAG-based document question-answering system that supports both **local processing** (via Ollama) and **cloud processing** (via Google Gen AI or OpenAI). Choose the option that best fits your privacy, performance, and hardware needs.
 
 ## Features
 
-- **Dual-Mode Operation**: Switch between local processing (private, offline) and Google Gen AI (fast, powerful)
-- **Multiple File Support**: PDFs and text files
+- **Dual-Mode Operation**: Switch between local processing (private, offline), Google Gen AI, or OpenAI
+- **Multiple File Support**: PDFs, Word, CSV, and text files
 - **Lightweight Design**: Optimized for low-power machines
 - **Privacy-First**: Local mode keeps all data on your device
-- **Fast Cloud Option**: Google Gen AI mode for superior performance when internet is available
+- **Fast Cloud Option**: Google Gen AI and OpenAI modes for superior performance when internet is available
 
 ## Architecture
 ```
@@ -19,6 +19,7 @@ pda/
 ├── hybrid_retriever.py # Retriever pipeline
 ├── llm_factory.py # Factory functions to setup LLMs
 ├── rag_system.py # RAG implementation
+├── query_cache.py # cache implementation
 ├── requirements.txt # Project dependencies
 ├── .env # Environment variables (API keys)
 ├── documents/ # Your PDFs and text files go here
@@ -89,6 +90,7 @@ python app.py
 
    * **Local**: Private, offline processing using Ollama
    * **Google Gen AI**: Cloud-based processing using Gemini models
+   * **OpenAI**: Cloud-based processing
 
 ---
 
@@ -122,13 +124,6 @@ ollama pull llama3.1:8b-instruct-q4_K_M
 ```env
 GOOGLE_API_KEY=your_google_api_key_here
 ```
-
-#### Google Gen AI Benefits:
-
-* Optimized models: Gemini models are efficient and powerful
-* Cost-effective: Generous free tier
-* Fast inference: Optimized for production use
-* Regular updates: Access to latest model improvements
 
 ---
 
