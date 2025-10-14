@@ -1,14 +1,14 @@
 # Personal Document Q&A Assistant
 
-A flexible RAG-based document question-answering system that supports both **local processing** (via Ollama) and **cloud processing** (via Google Gen AI or OpenAI). Choose the option that best fits your privacy, performance, and hardware needs.
+A flexible RAG-based document question-answering system that supports both **local processing** (via Ollama) and **cloud processing** (via Google Gen AI). Choose the option that best fits your privacy, performance, and hardware needs.
 
 ## Features
 
-- **Multi-Mode Operation**: Switch between local processing (private, offline), Google Gen AI, or OpenAI
+- **Multi-Mode Operation**: Switch between local processing (private, offline), Google Gen AI
 - **Multiple File Support**: PDFs, Word, CSV, and text files
 - **Lightweight Design**: Optimized for low-power machines
 - **Privacy-First**: Local mode keeps all data on your device
-- **Fast Cloud Option**: Google Gen AI and OpenAI modes for superior performance when internet is available
+- **Fast Cloud Option**: Google Gen AI modes for superior performance when internet is available
 
 ## Architecture
 ```
@@ -97,7 +97,6 @@ python app.py
 
    * **Local**: Private, offline processing using Ollama
    * **Google Gen AI**: Cloud-based processing using Gemini models
-   * **OpenAI**: Cloud-based processing
 
 ---
 
@@ -134,20 +133,6 @@ GOOGLE_API_KEY=your_google_api_key_here
 
 ---
 
-### For OpenAI Mode (Cloud)
-
-#### Get OpenAI API Key:
-
-1. Go to [OpenAI Settings](https://platform.openai.com/settings/organization/api-keys)
-2. Create a new API key
-3. Add it to your `.env` file:
-
-```env
-OPENAI_API_KEY=your_google_api_key_here
-```
-
----
-
 ## Mode Comparison
 
 | Aspect       | Local Mode             | Cloud AI Modes             |
@@ -162,7 +147,7 @@ OPENAI_API_KEY=your_google_api_key_here
 
 ## Model Options
 
-### Google Gen AI Models (`rag_system.py`):
+### Google Gen AI Models:
 ```python
 model_options = {
     "fast": "gemini-2.0-flash",      # Fastest, most efficient
@@ -180,7 +165,7 @@ model_options = {
 
 ## Next Steps
 
-* Implementing a web interface with Streamlit
+* Implementing a web interface with Streamlit or Flask
 * Adding document management (add/remove documents)
 * Implementing conversation history
 * JSON grammar constraint (Ollama feature)

@@ -10,7 +10,6 @@ from llm_factory import (
     LLMFactory,
     GoogleGenAIConfig,
     OllamaConfig,
-    OpenAIConfig,
     check_ollama_available,
 )
 
@@ -180,43 +179,6 @@ class TestOllamaConfig:
         assert config.max_tokens > 0
 
 
-class TestOpenAIConfig:
-    """Test OpenAI configuration."""
-
-    def test_get_display_name(self):
-        """Test display name formatting."""
-        config = OpenAIConfig(api_key="test", model_name="gpt-4o-mini")
-        display_name = config.get_display_name()
-        assert isinstance(display_name, str)
-        assert "gpt" in display_name.lower() or "openai" in display_name.lower()
-
-    @pytest.mark.skipif(
-        not pytest.importorskip("langchain_openai", reason="langchain_openai not installed"),
-        reason="langchain_openai not installed"
-    )
-    @patch('langchain_openai.ChatOpenAI')
-    def test_create_llm(self, mock_openai_class):
-        """Test OpenAI LLM creation (skipped if langchain_openai not installed)."""
-        config = OpenAIConfig(
-            api_key="test-key",
-            model_name="gpt-4o-mini",
-            temperature=0.3,
-        )
-
-        mock_llm = Mock()
-        mock_openai_class.return_value = mock_llm
-
-        llm = config.create_llm()
-
-        mock_openai_class.assert_called_once()
-        call_kwargs = mock_openai_class.call_args[1]
-
-        assert call_kwargs['model'] == "gpt-4o-mini"
-        assert call_kwargs['api_key'] == "test-key"
-        assert call_kwargs['temperature'] == 0.3
-
-        assert llm == mock_llm
-
 
 class TestUtilityFunctions:
     """Test utility functions."""
@@ -262,7 +224,6 @@ class TestConfigIntegration:
         configs = [
             OllamaConfig(),
             GoogleGenAIConfig(api_key="test"),
-            OpenAIConfig(api_key="test"),
         ]
 
         for config in configs:

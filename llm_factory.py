@@ -136,58 +136,6 @@ class OllamaConfig(LLMConfig):
     def get_display_name(self) -> str:
         return f"Ollama {self.model_name}"
 
-
-@dataclass(kw_only=True)
-class OpenAIConfig(LLMConfig):
-    """Configuration for OpenAI models (example of extensibility)."""
-
-    api_key: str
-    model_name: str = "gpt-4o-mini"
-    temperature: float = 0.1
-    max_tokens: int = 1000
-
-    def create_llm(self) -> BaseLanguageModel:
-        """Create OpenAI LLM instance."""
-        try:
-            from langchain_openai import ChatOpenAI
-
-            return ChatOpenAI(
-                model=self.model_name,
-                api_key=self.api_key,
-                temperature=self.temperature,
-                max_tokens=self.max_tokens,
-            )
-        except ImportError as e:
-            raise ImportError(
-                "OpenAI not available. "
-                "Install with: pip install langchain-openai"
-            ) from e
-
-    def get_prompt_template(self) -> PromptTemplate:
-        """Return prompt template optimized for OpenAI."""
-        template = """You are a document Q&A assistant. Answer based solely on the provided context.
-
-Context:
-{context}
-
-Question: {question}
-
-Instructions:
-- Only use information from the context above
-- If you cannot answer from the context, say so clearly
-- Be concise and accurate
-
-Answer:"""
-
-        return PromptTemplate(
-            template=template,
-            input_variables=["context", "question"]
-        )
-
-    def get_display_name(self) -> str:
-        return f"OpenAI {self.model_name}"
-
-
 class LLMFactory:
     """
     Factory for creating LLM configurations based on user preferences.
@@ -205,7 +153,7 @@ class LLMFactory:
         Create LLM config from legacy mode string (for backward compatibility).
 
         Args:
-            mode: "local", "google", or "openai"
+            mode: "local" or "google"
             api_key: API key for cloud providers
             model_name: Optional model override
 
@@ -230,18 +178,10 @@ class LLMFactory:
                 model_name=model_name or "gemini-2.0-flash-lite"
             )
 
-        elif mode == "openai":
-            if not api_key:
-                raise ValueError("OpenAI mode requires api_key parameter")
-            return OpenAIConfig(
-                api_key=api_key,
-                model_name=model_name or "gpt-4o-mini"
-            )
-
         else:
             raise ValueError(
                 f"Unknown mode: {mode}. "
-                f"Valid options: 'local', 'google', 'openai'"
+                f"Valid options: 'local', 'google'"
             )
 
     @staticmethod
@@ -264,19 +204,6 @@ class LLMFactory:
     ) -> OllamaConfig:
         """Convenience method for creating Ollama config."""
         return OllamaConfig(
-            model_name=model_name,
-            **kwargs
-        )
-
-    @staticmethod
-    def create_openai(
-            api_key: str,
-            model_name: str = "gpt-4o-mini",
-            **kwargs
-    ) -> OpenAIConfig:
-        """Convenience method for creating OpenAI config."""
-        return OpenAIConfig(
-            api_key=api_key,
             model_name=model_name,
             **kwargs
         )

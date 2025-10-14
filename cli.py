@@ -156,19 +156,16 @@ class CLI:
     @staticmethod
     def _choose_llm_config() -> Optional[LLMConfig]:
         print("\n🔧 Choose Your LLM:")
-        # ... (print options for Ollama, Google, OpenAI)
-        print("1. Local (Ollama)\n2. Google Gemini\n3. OpenAI GPT")
+        print("1. Local (Ollama)\n2. Google Gemini")
 
         while True:
-            choice = input("Enter your choice (1, 2, or 3): ").strip()
+            choice = input("Enter your choice (1 or 2): ").strip()
             if choice == "1":
                 return CLI._configure_ollama()
             elif choice == "2":
                 return CLI._configure_google()
-            elif choice == "3":
-                return CLI._configure_openai()
             else:
-                print("❌ Invalid choice. Please enter 1, 2, or 3.")
+                print("❌ Invalid choice. Please enter 1 or 2")
 
     @staticmethod
     def _configure_ollama() -> Optional[OllamaConfig]:
@@ -263,11 +260,3 @@ class CLI:
 
         print(f"✅ Using Google model: {model_name}")
         return LLMFactory.create_google(api_key=api_key, model_name=model_name)
-
-    @staticmethod
-    def _configure_openai() -> Optional['OpenAIConfig']:
-        api_key = os.getenv("OPENAI_API_KEY") or input("Enter OpenAI API Key: ").strip()
-        if not api_key: return None
-        model_name = "gpt-4o-mini"
-        print(f"✅ Using OpenAI model: {model_name}")
-        return LLMFactory.create_openai(api_key=api_key, model_name=model_name)

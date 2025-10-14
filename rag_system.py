@@ -248,13 +248,6 @@ class RAGSystem:
                 "\n  2. Check your internet connection"
                 "\n  3. Ensure you have API quota remaining"
             )
-        elif "openai" in llm_name or "gpt" in llm_name:
-            base_msg += (
-                "\n\n💡 Troubleshooting tips for OpenAI:"
-                "\n  1. Verify your API key is valid"
-                "\n  2. Check your internet connection"
-                "\n  3. Ensure you have API credits remaining"
-            )
 
         return base_msg
 
@@ -285,7 +278,7 @@ def create_rag_system(
 
     Args:
         vector_store: ChromaDB vector store
-        mode: "local", "google", or "openai"
+        mode: "local" or "google"
         api_key: API key for cloud providers
         model_name: Optional model name override
         bm25_index: Optional BM25 index
