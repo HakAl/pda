@@ -1,7 +1,3 @@
-"""
-Document Q&A Assistant with dependency injection.
-"""
-
 import os
 import sys
 from document_processor import DocumentProcessor
@@ -27,7 +23,6 @@ class DocumentQAAssistant:
         self.setup()
 
     def setup(self):
-        """Setup the RAG system with LLM configuration"""
         print("🚀 Setting up Document Q&A Assistant...")
         print("=" * 50)
 
@@ -63,7 +58,6 @@ class DocumentQAAssistant:
         print("You can now ask questions about your documents.")
 
     def choose_llm_config(self) -> LLMConfig:
-        """Let user choose LLM configuration"""
         print("\n🔧 Choose Your LLM:")
         print("1. Local Mode (Ollama)")
         print("   - Uses Ollama with local models")
@@ -96,7 +90,6 @@ class DocumentQAAssistant:
                 print("❌ Invalid choice. Please enter 1, 2, or 3.")
 
     def _configure_ollama(self) -> OllamaConfig:
-        """Configure Ollama (local) LLM"""
         if not check_ollama_available():
             print("❌ Ollama not found. Please install Ollama from https://ollama.ai/")
             print("   Then run: ollama pull llama3.1:8b-instruct-q4_K_M")
@@ -125,7 +118,6 @@ class DocumentQAAssistant:
         return LLMFactory.create_ollama(model_name=model_name)
 
     def _configure_google(self) -> GoogleGenAIConfig:
-        """Configure Google Gemini LLM"""
         api_key = os.getenv("GOOGLE_API_KEY")
 
         if not api_key:
@@ -159,7 +151,6 @@ class DocumentQAAssistant:
         return LLMFactory.create_google(api_key=api_key, model_name=model_name)
 
     def _configure_openai(self) -> 'OpenAIConfig':
-        """Configure OpenAI LLM"""
         api_key = os.getenv("OPENAI_API_KEY")
 
         if not api_key:
@@ -193,7 +184,6 @@ class DocumentQAAssistant:
         return LLMFactory.create_openai(api_key=api_key, model_name=model_name)
 
     def chat_loop(self):
-        """Main chat loop"""
         if self.rag_system is None:
             print("System not ready. Please check if documents are available.")
             return
@@ -226,7 +216,6 @@ class DocumentQAAssistant:
 
                     print(f"\n📚 Answer: {result['answer']}")
 
-                    # Show sources
                     if result['source_documents']:
                         print(f"\n📖 Sources:")
                         for i, doc in enumerate(result['source_documents'][:2], 1):
@@ -247,7 +236,6 @@ class DocumentQAAssistant:
                 print(f"Unexpected error: {e}")
 
     def switch_llm(self):
-        """Switch to a different LLM configuration"""
         print(f"\n🔄 Current LLM: {self.llm_config.get_display_name()}")
         confirm = input("Do you want to switch to a different LLM? (yes/no): ").strip().lower()
 
@@ -267,7 +255,6 @@ class DocumentQAAssistant:
                 print(f"✅ Switched to {new_config.get_display_name()}")
 
     def reload_documents(self):
-        """Reprocess docs and rebuild stores."""
         print("🔄 Reloading documents...")
         vs, bm25_idx, bm25_docs = self.processor.process_documents("./documents")
         if vs:
@@ -280,7 +267,6 @@ class DocumentQAAssistant:
             print("✅ Documents reloaded successfully!")
 
     def show_help(self):
-        """Show available commands"""
         print("\n📋 Available commands:")
         print("  - Ask any question about your documents")
         print("  - 'quit' - Exit the application")

@@ -49,7 +49,7 @@ class DocumentProcessor:
                 model_name="sentence-transformers/all-MiniLM-L6-v2",
                 model_kwargs={'device': 'cpu'},
                 encode_kwargs={'normalize_embeddings': False},
-                cache_folder="./model_cache"  # Cache model locally
+                cache_folder="./model_cache"
             )
         except ImportError:
             from langchain.embeddings import FakeEmbeddings
@@ -117,7 +117,6 @@ class DocumentProcessor:
 
             loaded_docs = loader.load()
 
-            # Add filename to metadata
             for doc in loaded_docs:
                 doc.metadata['source'] = filename
                 doc.metadata['file_path'] = file_path
@@ -181,11 +180,9 @@ class DocumentProcessor:
         return BM25Okapi(tokenized), chunks
 
     def _split_documents_batch(self, documents: List[Document]) -> List[Document]:
-        """Split documents efficiently without redundant progress bar"""
         return self.text_splitter.split_documents(documents)
 
     def process_documents(self, documents_folder="./documents") -> Optional[Tuple]:
-        """Process documents and create vector store with optimizations"""
         print("📂 Loading documents...")
         documents = self.load_documents(documents_folder)
 
@@ -207,10 +204,7 @@ class DocumentProcessor:
             else:
                 docs_to_split.append(doc)
 
-        # Split documents that need splitting
         split_chunks = self._split_documents_batch(docs_to_split)
-
-        # Combine all chunks: those from the splitter and those pre-chunked
         all_final_chunks = split_chunks + pre_chunked_docs
 
         print(f"✅ Created {len(all_final_chunks)} chunks (including pre-chunked Excel data)")
@@ -248,11 +242,9 @@ class DocumentProcessor:
             def close(self):
                 self.pbar.close()
 
-        # Wrap embeddings with progress tracker
         progress_embeddings = ProgressEmbeddings(self.embeddings, len(chunks))
 
         try:
-            # Single batch creation - let Chroma handle optimization
             vector_store = Chroma.from_documents(
                 documents=chunks,
                 embedding=progress_embeddings,

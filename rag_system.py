@@ -33,12 +33,8 @@ class RAGSystem:
         self.llm_config = llm_config
         self.bm25_index = bm25_index
         self.bm25_chunks = bm25_chunks or []
-
-        # Create LLM from config
         self.llm = llm_config.create_llm()
         self.prompt = llm_config.get_prompt_template()
-
-        # Build retriever and chain
         self._retriever = self._build_retriever()
         self._chain: Optional[RunnableSerializable] = None
 
@@ -96,7 +92,6 @@ class RAGSystem:
             }
 
         except Exception as e:
-            # Construct helpful error message based on LLM type
             error_msg = self._format_error_message(e)
             raise RAGSystemError(error_msg) from e
 
@@ -141,7 +136,6 @@ class RAGSystemError(Exception):
     pass
 
 
-# Factory function for backward compatibility
 def create_rag_system(
         vector_store: Chroma,
         mode: str = "local",

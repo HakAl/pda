@@ -1,12 +1,3 @@
-"""
-Example unit tests showing how dependency injection makes testing easier.
-
-Run with: pytest tests/test_llm_factory.py -v
-
-Note: These tests are examples to demonstrate testing patterns.
-Adjust assertions to match your actual configuration values.
-"""
-
 import pytest
 from unittest.mock import Mock, patch, MagicMock
 import sys
@@ -250,7 +241,6 @@ class TestUtilityFunctions:
         assert result is False
 
 
-# Integration-style test example
 class TestConfigIntegration:
     """Integration tests showing how configs work together."""
 
@@ -288,13 +278,11 @@ class TestConfigIntegration:
             assert 'question' in template.input_variables
 
 
-# Example fixture for testing RAGSystem with dependency injection
 @pytest.fixture
 def mock_llm_config():
     """Fixture providing a mock LLM config for testing RAGSystem."""
     config = Mock()
 
-    # Mock the methods
     mock_llm = Mock()
     config.create_llm.return_value = mock_llm
 
@@ -319,7 +307,6 @@ def mock_vector_store():
     return mock_vs
 
 
-# Example test showing how easy it is to test RAGSystem now
 class TestRAGSystemWithDI:
     """Example tests for RAGSystem using dependency injection."""
 
@@ -333,7 +320,6 @@ class TestRAGSystemWithDI:
             mock_retriever = Mock()
             mock_create.return_value = mock_retriever
 
-            # This is so much easier to test now!
             rag = rag_system.RAGSystem(
                 vector_store=mock_vector_store,
                 llm_config=mock_llm_config,

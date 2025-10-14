@@ -72,6 +72,26 @@ ollama>=0.1.0
 
 ---
 
+## Usage
+
+1. Add your documents:
+
+   * Create a `documents` folder in your project
+   * Add PDFs, Word, CSV, and text files you want to query
+
+2. Run the application:
+
+```bash
+python app.py
+```
+
+3. Choose your preferred mode when prompted:
+
+   * **Local**: Private, offline processing using Ollama
+   * **Google Gen AI**: Cloud-based processing using Gemini models
+
+---
+
 ## Configuration
 
 ### For Local Mode (Private)
@@ -112,30 +132,24 @@ GOOGLE_API_KEY=your_google_api_key_here
 
 ---
 
-## Usage
+### For OpenAI Mode (Cloud)
 
-1. Add your documents:
+#### Get OpenAI API Key:
 
-   * Create a `documents` folder in your project
-   * Add PDFs, Word, CSV, and text files you want to query
+1. Go to [OpenAI Settings](https://platform.openai.com/settings/organization/api-keys)
+2. Create a new API key
+3. Add it to your `.env` file:
 
-2. Run the application:
-
-```bash
-python app.py
+```env
+OPENAI_API_KEY=your_google_api_key_here
 ```
-
-3. Choose your preferred mode when prompted:
-
-   * **Local**: Private, offline processing using Ollama
-   * **Google Gen AI**: Cloud-based processing using Gemini models
 
 ---
 
 ## Mode Comparison
 
-| Aspect       | Local Mode             | Google Gen AI Mode            |
-| ------------ | ---------------------- | -------------------------- |
+| Aspect       | Local Mode             | Cloud AI Modes             |
+| ------------ | ---------------------- |----------------------------|
 | **Privacy**  | ✅ 100% local           | ❌ Data sent to Google      |
 | **Internet** | ✅ Works offline        | ❌ Requires connection      |
 | **Speed**    | ⚠️ Depends on hardware | ✅ Very fast                |

@@ -186,7 +186,6 @@ class RerankerCompressor:
         return [documents[i] for i in top_indices]
 
 
-# Singleton pattern for reranker (expensive to load)
 _RERANKER_CACHE = {}
 
 def get_reranker(
@@ -208,7 +207,6 @@ def get_reranker(
     return _RERANKER_CACHE[cache_key]
 
 
-# Example usage showing how to compose these components
 def create_hybrid_retrieval_pipeline(
     vector_store: Chroma,
     bm25_index: Optional[BM25Okapi] = None,
@@ -236,11 +234,9 @@ def create_hybrid_retrieval_pipeline(
     if not use_reranking:
         return hybrid_retriever
 
-    # Wrap with reranking using LangChain's ContextualCompressionRetriever
     from langchain.retrievers import ContextualCompressionRetriever
     from langchain_core.documents.compressor import BaseDocumentCompressor
     from langchain_core.callbacks import CallbackManagerForRetrieverRun
-    from pydantic import BaseModel, Field
     from pydantic import ConfigDict
 
     class LangChainRerankerAdapter(BaseDocumentCompressor):
