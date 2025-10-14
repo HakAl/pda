@@ -1,10 +1,12 @@
 import os
+from contextlib import contextmanager
 from typing import List, Tuple, Optional
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_chroma import Chroma
 from langchain.chains import HypotheticalDocumentEmbedder
 from langchain_core.documents import Document
+from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_ollama import OllamaLLM
 from rank_bm25 import BM25Okapi
@@ -21,6 +23,45 @@ try:
 except ImportError:
     EXTRA_LOADERS_AVAILABLE = False
     print("⚠️  Additional document loaders not available. Install with: pip install docx2txt unstructured")
+
+
+class ProgressEmbeddings(Embeddings):
+    """Wrapper class that tracks embedding progress with tqdm."""
+
+    def __init__(self, base_embeddings, total_chunks):
+        self.base = base_embeddings
+        self.pbar = tqdm(total=total_chunks, desc="🔢 Embedding chunks")
+        self.embedded_count = 0
+
+    def embed_documents(self, texts):
+        result = self.base.embed_documents(texts)
+        self.pbar.update(len(texts))
+        self.embedded_count += len(texts)
+        return result
+
+    def embed_query(self, text):
+        return self.base.embed_query(text)
+
+    def close(self):
+        self.pbar.close()
+
+@contextmanager
+def create_progress_embeddings(base_embeddings, total_chunks):
+    """Context manager for progress-tracked embeddings.
+
+    Usage:
+        with progress_embeddings(embeddings, len(chunks)) as prog_emb:
+            vector_store = Chroma.from_documents(
+                documents=chunks,
+                embedding=prog_emb,
+                ...
+            )
+    """
+    wrapper = ProgressEmbeddings(base_embeddings, total_chunks)
+    try:
+        yield wrapper
+    finally:
+        wrapper.close()
 
 
 class DocumentProcessor:
@@ -220,39 +261,15 @@ class DocumentProcessor:
         return vector_store, self.bm25_index, self.bm25_chunks
 
     def _create_vectorstore_batched(self, chunks: List[Document]) -> Chroma:
-        """Create vector store with progress tracking via wrapper"""
-        from langchain_core.embeddings import Embeddings
+        """Create vector store with progress tracking via context manager."""
 
-        # Create a wrapper class that tracks progress
-        class ProgressEmbeddings(Embeddings):
-            def __init__(self, base_embeddings, total_chunks):
-                self.base = base_embeddings
-                self.pbar = tqdm(total=total_chunks, desc="🔢 Embedding chunks")
-                self.embedded_count = 0
-
-            def embed_documents(self, texts):
-                result = self.base.embed_documents(texts)
-                self.pbar.update(len(texts))
-                self.embedded_count += len(texts)
-                return result
-
-            def embed_query(self, text):
-                return self.base.embed_query(text)
-
-            def close(self):
-                self.pbar.close()
-
-        progress_embeddings = ProgressEmbeddings(self.embeddings, len(chunks))
-
-        try:
+        with create_progress_embeddings(self.embeddings, len(chunks)) as prog_emb:
             vector_store = Chroma.from_documents(
                 documents=chunks,
-                embedding=progress_embeddings,
+                embedding=prog_emb,
                 persist_directory=self.persist_directory,
                 collection_metadata={"hnsw:space": "cosine"}
             )
-        finally:
-            progress_embeddings.close()
 
         return vector_store
 
