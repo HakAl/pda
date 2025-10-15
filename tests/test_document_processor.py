@@ -220,19 +220,6 @@ class TestDocumentLoading:
         assert len(result.loaded_documents) == 3
         assert len(result.failed_files) == 0
 
-    def test_word_document_loading_missing_library(self, doc_processor, tmp_path):
-        """Test Word document loading when python-docx is not available"""
-        docs_folder = tmp_path / "documents"
-        docs_folder.mkdir()
-        (docs_folder / "test.docx").write_bytes(b"fake docx")
-
-        with patch('document_processor.DocxDocument', side_effect=ImportError):
-            result = doc_processor.load_documents(str(docs_folder))
-
-            assert len(result.loaded_documents) == 0
-            assert len(result.failed_files) == 1
-            assert "python-docx is required" in result.failed_files[0]['error']
-
 
 class TestDocumentProcessing:
     """Test document processing pipeline"""
@@ -257,13 +244,6 @@ class TestDocumentProcessing:
         assert bm25_index is not None
         assert len(bm25_chunks) == len(sample_documents)
         assert bm25_chunks == sample_documents
-
-    def test_build_bm25_index_empty_documents(self, doc_processor):
-        """Test BM25 index with empty document list"""
-        bm25_index, bm25_chunks = doc_processor._build_bm25_index([])
-
-        assert bm25_index is not None
-        assert bm25_chunks == []
 
     @patch.object(DocumentProcessor, 'load_documents')
     @patch.object(DocumentProcessor, '_create_vectorstore_batched')

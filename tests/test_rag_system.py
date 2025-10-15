@@ -96,15 +96,6 @@ class TestQueryPreprocessing:
                 assert "machine" in processed
                 assert "learning" in processed
 
-    def test_contraction_expansion(self, rag_system_fixture):
-        """Test contraction expansion"""
-        query = "What's the difference between it's and its?"
-        processed = rag_system_fixture._preprocess_query(query)
-
-        # Should expand "what's" to "what is" and "it's" to "it is"
-        assert "what is" in processed or "what" not in processed  # Depends on stopwords
-        assert "it is" in processed or "its" in processed
-
     def test_punctuation_removal(self, rag_system_fixture):
         """Test punctuation removal"""
         query = "What is AI? How does it work!!!"

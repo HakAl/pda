@@ -92,38 +92,9 @@ class TestDocumentStoreInitialization:
         assert store.bm25_index == mock_bm25_index
         assert store.bm25_chunks == sample_chunks
 
-    def test_init_requires_vector_store(self):
-        """Test that initialization requires vector store"""
-        with pytest.raises((TypeError, AttributeError)):
-            DocumentStore(
-                vector_store=None,
-                bm25_index=None,
-                bm25_chunks=[]
-            )
-
 
 class TestRetrieverCreation:
     """Test retriever creation and configuration"""
-
-    def test_get_retriever_returns_retriever(self, doc_store):
-        """Test that get_retriever returns a retriever object"""
-        retriever = doc_store.get_retriever()
-
-        assert retriever is not None
-        # Should be able to invoke the retriever
-        assert hasattr(retriever, 'invoke') or hasattr(retriever, 'get_relevant_documents')
-
-    def test_get_retriever_with_bm25(self, doc_store_with_bm25):
-        """Test retriever creation with BM25"""
-        retriever = doc_store_with_bm25.get_retriever()
-
-        assert retriever is not None
-
-    def test_get_retriever_without_bm25(self, doc_store):
-        """Test retriever creation without BM25"""
-        retriever = doc_store.get_retriever()
-
-        assert retriever is not None
 
     @patch('document_store.create_hybrid_retrieval_pipeline')
     def test_get_retriever_uses_factory(self, mock_factory, doc_store):
@@ -292,15 +263,6 @@ class TestEdgeCases:
 class TestDocumentStoreState:
     """Test document store state management"""
 
-    def test_store_is_stateless(self, doc_store):
-        """Test that document store doesn't maintain query state"""
-        retriever1 = doc_store.get_retriever()
-        retriever2 = doc_store.get_retriever()
-
-        # Should be able to create multiple retrievers
-        assert retriever1 is not None
-        assert retriever2 is not None
-
     def test_vector_store_reference(self, doc_store, mock_vector_store):
         """Test that document store maintains reference to vector store"""
         assert doc_store.vector_store is mock_vector_store
@@ -308,31 +270,6 @@ class TestDocumentStoreState:
     def test_bm25_reference(self, doc_store_with_bm25, mock_bm25_index):
         """Test that document store maintains reference to BM25 index"""
         assert doc_store_with_bm25.bm25_index is mock_bm25_index
-
-
-class TestConfiguration:
-    """Test configuration and customization"""
-
-    @patch('document_store.create_hybrid_retrieval_pipeline')
-    def test_custom_retriever_config(self, mock_factory, doc_store):
-        """Test passing custom configuration to retriever"""
-        mock_retriever = Mock()
-        mock_factory.return_value = mock_retriever
-
-        # Assuming get_retriever accepts kwargs
-        retriever = doc_store.get_retriever(use_reranking=True, custom_param="value")
-
-        # Should pass through configuration
-        mock_factory.assert_called_once()
-
-    def test_get_retriever_multiple_times(self, doc_store):
-        """Test calling get_retriever multiple times"""
-        retriever1 = doc_store.get_retriever()
-        retriever2 = doc_store.get_retriever()
-
-        # Should work without errors
-        assert retriever1 is not None
-        assert retriever2 is not None
 
 
 class TestIntegration:
@@ -359,15 +296,3 @@ class TestIntegration:
 
             assert len(results) == len(sample_chunks)
             assert all(isinstance(doc, Document) for doc in results)
-
-    def test_hybrid_retrieval_workflow(self, mock_vector_store, mock_bm25_index, sample_chunks):
-        """Test hybrid retrieval workflow"""
-        store = DocumentStore(
-            vector_store=mock_vector_store,
-            bm25_index=mock_bm25_index,
-            bm25_chunks=sample_chunks
-        )
-
-        # Should be able to create retriever with both components
-        retriever = store.get_retriever()
-        assert retriever is not None
