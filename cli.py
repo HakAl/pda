@@ -11,6 +11,7 @@ from llm_factory import (
 from config import app_config
 from rag_system import RAGSystem
 from document_store import DocumentStore
+
 try:
     import google.generativeai as genai
     from google.api_core import exceptions
@@ -31,6 +32,7 @@ def setup_logging():
         stream=sys.stdout,
     )
 
+
 class CLI:
     """
     Handles all command-line interface interactions.
@@ -45,12 +47,6 @@ class CLI:
         self.qa_service = qa_service
         self.processor = processor
         self.document_store = document_store
-
-        # Keep state of the document stores for rebuilding services
-        self.vector_store = document_store.vector_store
-        self.bm25_index = document_store.bm25_index
-        self.bm25_chunks = document_store.bm25_chunks
-
         self.llm_config = qa_service.rag_system.llm_config
 
     def run(self):
@@ -64,7 +60,7 @@ class CLI:
 
         while True:
             try:
-                question = input("\n📝 Your question: ").strip()
+                question = input("\n🔍 Your question: ").strip()
 
                 if not question:
                     continue
@@ -113,34 +109,38 @@ class CLI:
         if confirm in ['yes', 'y']:
             new_config = self._choose_llm_config()
             if new_config:
-                new_rag_system = RAGSystem(
-                    vector_store=self.vector_store,
-                    llm_config=new_config,
-                    bm25_index=self.bm25_index,
-                    bm25_chunks=self.bm25_chunks
-                )
-                self.qa_service = QAService(new_rag_system)
-                self.llm_config = new_config
-                print(f"\n✅ Switched to {new_config.get_display_name()}.")
-                print("Type 'help' for commands.")
+                try:
+                    new_rag_system = RAGSystem(
+                        document_store=self.document_store,
+                        llm_config=new_config
+                    )
+                    self.qa_service = QAService(new_rag_system)
+                    self.llm_config = new_config
+
+                    print(f"\n✅ Switched to {new_config.get_display_name()}.")
+                    print("You can now ask questions using the new model.")
+                except Exception as e:
+                    print(f"\n❌ Failed to switch LLM: {e}")
+            else:
+                print("\n❌ Model switch cancelled or failed.")
 
     def _handle_reload(self):
         print("\n🔄 Reloading documents...")
         vs, bm25_idx, bm25_docs = self.processor.process_documents("./documents")
         if vs:
-            self.vector_store = vs
-            self.bm25_index = bm25_idx
-            self.bm25_chunks = bm25_docs
+            self.document_store.vector_store = vs
+            self.document_store.bm25_index = bm25_idx
+            self.document_store.bm25_chunks = bm25_docs
 
-            # Rebuild RAG system with new docs and existing LLM
-            new_rag_system = RAGSystem(
-                vector_store=self.vector_store,
-                llm_config=self.llm_config,
-                bm25_index=self.bm25_index,
-                bm25_chunks=self.bm25_chunks
-            )
-            self.qa_service = QAService(new_rag_system)
-            print("✅ Documents reloaded successfully!")
+            try:
+                new_rag_system = RAGSystem(
+                    document_store=self.document_store,
+                    llm_config=self.llm_config
+                )
+                self.qa_service = QAService(new_rag_system)
+                print("✅ Documents reloaded successfully!")
+            except Exception as e:
+                print(f"❌ Failed to rebuild RAG system: {e}")
         else:
             print("❌ Failed to reload documents.")
 
