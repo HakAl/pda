@@ -20,18 +20,28 @@ pda/
 ├── document_processor.py # Document loading and processing
 ├── document_store.py # Document retrieval
 ├── domain.py # QA service
+├── error_handler.py # Make errors readable
 ├── hybrid_retriever.py # Retriever pipeline
 ├── llm_factory.py # Factory functions to setup LLMs
 ├── query_cache.py # cache implementation
 ├── rag_system.py # RAG implementation
 ├── requirements.txt # Project dependencies
 ├── requirements-dev.txt # dev dependencies
-├── documents/ # Your PDFs and text files go here
+├── web_app.py # Streamlit interface
+├── documents/ # Corpus
 └── tests/
     ├── __init__.py
     ├── conftest.py
     ├── generate_test_data.py
+    ├── pytest.ini
+    ├── README.md
+    ├── run_tests.sh
+    ├── test_document_processor.py
+    ├── test_document_store.py
+    ├── test_hybrid_retriever.py
     ├── test_llm_factory.py
+    ├── test_query_cache.py
+    ├── test_rag_system.py
     └── test_retrieval_performance.py
 ```
 
