@@ -159,8 +159,14 @@ class RAGSystem:
 
             result = chain.invoke({"query": processed_question})
 
-            # Use collected tokens as the answer instead of result["result"]
-            final_answer = "".join(collected_tokens) if collected_tokens else result.get("result", "")
+            # If no tokens were collected (Google doesn't use callbacks), simulate streaming
+            if not collected_tokens:
+                final_answer = result.get("result", "")
+                for char in final_answer:
+                    token_callback(char)
+                    time.sleep(0.01)
+            else:
+                final_answer = "".join(collected_tokens)
 
             final_result = {
                 "answer": final_answer,
@@ -259,55 +265,3 @@ class RAGSystem:
 class RAGSystemError(Exception):
     """Custom exception for RAG system errors."""
     pass
-
-
-def create_rag_system(
-        vector_store: Chroma,
-        mode: str = "local",
-        api_key: Optional[str] = None,
-        model_name: Optional[str] = None,
-        bm25_index: Optional[Any] = None,
-        bm25_chunks: Optional[List[Document]] = None,
-        enable_cache: bool = True,
-        cache_similarity_threshold: float = 0.85,
-        cache_max_size: int = 100,
-) -> RAGSystem:
-    """
-    This maintains backward compatibility while using the new architecture.
-    New code should use RAGSystem(llm_config=...) directly.
-
-    Args:
-        vector_store: ChromaDB vector store
-        mode: "local" or "google"
-        api_key: API key for cloud providers
-        model_name: Optional model name override
-        bm25_index: Optional BM25 index
-        bm25_chunks: Optional BM25 documents
-        cache_max_size:
-        cache_similarity_threshold:
-        enable_cache:
-
-    Returns:
-        Configured RAGSystem instance
-    """
-    from llm_factory import LLMFactory
-    from document_store import DocumentStore
-
-    llm_config = LLMFactory.create_from_mode(
-        mode=mode,
-        api_key=api_key,
-        model_name=model_name,
-    )
-    doc_store = DocumentStore(
-        vector_store=vector_store,
-        bm25_index=bm25_index,
-        bm25_chunks=bm25_chunks,
-    )
-
-    return RAGSystem(
-        document_store=doc_store,
-        llm_config=llm_config,
-        enable_cache=enable_cache,
-        cache_similarity_threshold=cache_similarity_threshold,
-        cache_max_size=cache_max_size,
-    )

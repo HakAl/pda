@@ -6,8 +6,8 @@ from pathlib import Path
 # Add your project root to path if needed
 # sys.path.insert(0, str(Path(__file__).parent))
 
-from rag_system import RAGSystem, create_rag_system, RAGSystemError
-from llm_factory import LLMFactory, get_available_ollama_models
+from rag_system import RAGSystem, RAGSystemError
+from llm_factory import LLMFactory, get_available_ollama_models, check_ollama_available
 from document_store import DocumentStore
 
 # Page configuration
@@ -18,7 +18,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better appearance
+# Custom CSS for better appearance with proper contrast
 st.markdown("""
 <style>
     .stChatMessage {
@@ -26,16 +26,31 @@ st.markdown("""
         border-radius: 0.5rem;
     }
     .source-box {
-        background-color: #f0f2f6;
+        background-color: #e8f4f8;
+        color: #1a1a1a;
         padding: 1rem;
         border-radius: 0.5rem;
         margin-top: 0.5rem;
-        border-left: 3px solid #4CAF50;
+        border-left: 4px solid #4CAF50;
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
     .cache-hit {
         background-color: #e8f5e9;
+        color: #2e7d32;
         padding: 0.5rem;
         border-radius: 0.25rem;
+        margin-bottom: 0.5rem;
+        font-weight: 500;
+    }
+    /* Ensure expander content is visible */
+    .streamlit-expanderContent {
+        background-color: transparent;
+    }
+    /* Source header styling */
+    .source-header {
+        color: #dadada;
+        font-weight: 600;
         margin-bottom: 0.5rem;
     }
 </style>
@@ -65,12 +80,32 @@ def initialize_rag_system(
             embedding_function=embeddings
         )
 
-        # Create RAG system
-        rag_system = create_rag_system(
+        # Create LLM config based on mode
+        if mode == "local":
+            llm_config = LLMFactory.create_ollama(model_name=model_name)
+        elif mode == "google":
+            # Only pass model_name if it's provided, otherwise use default
+            if model_name:
+                llm_config = LLMFactory.create_google(
+                    api_key=api_key,
+                    model_name=model_name
+                )
+            else:
+                llm_config = LLMFactory.create_google(api_key=api_key)
+        else:
+            raise ValueError(f"Unknown mode: {mode}")
+
+        # Create document store
+        document_store = DocumentStore(
             vector_store=vector_store,
-            mode=mode,
-            api_key=api_key,
-            model_name=model_name,
+            bm25_index=None,  # Optional: can be added if available
+            bm25_chunks=None
+        )
+
+        # Create RAG system directly
+        rag_system = RAGSystem(
+            document_store=document_store,
+            llm_config=llm_config,
             enable_cache=enable_cache,
             cache_similarity_threshold=cache_threshold
         )
@@ -104,30 +139,42 @@ def sidebar_config():
         model_name = None
         if mode == "local":
             # Get available Ollama models
-            available_models = get_available_ollama_models()
+            if check_ollama_available():
+                available_models = get_available_ollama_models()
 
-            if available_models:
-                st.info(f"Found {len(available_models)} Ollama model(s)")
-                model_name = st.selectbox(
-                    "Select Ollama Model",
-                    options=available_models,
-                    help="Choose from your locally installed Ollama models"
-                )
+                if available_models:
+                    st.info(f"Found {len(available_models)} Ollama model(s)")
+                    model_name = st.selectbox(
+                        "Select Ollama Model",
+                        options=available_models,
+                        help="Choose from your locally installed Ollama models"
+                    )
+                else:
+                    st.warning("⚠️ No Ollama models found. Please ensure Ollama is running and models are installed.")
+                    model_name = st.text_input(
+                        "Model Name",
+                        value="",
+                        help="Enter model name manually (e.g., llama3.1:8b-instruct-q4_K_M)"
+                    )
+                    st.info("💡 Install models with: `ollama pull <model-name>`")
             else:
-                st.warning("⚠️ No Ollama models found. Please ensure Ollama is running and models are installed.")
+                st.error("❌ Ollama is not available. Please ensure Ollama is installed and running.")
                 model_name = st.text_input(
                     "Model Name",
                     value="",
                     help="Enter model name manually (e.g., llama3.1:8b-instruct-q4_K_M)"
                 )
-                st.info("💡 Install models with: `ollama pull <model-name>`")
         else:
             # Google mode - manual input
             model_name = st.text_input(
                 "Model Name (Optional)",
                 value="",
-                help="Override default Google model name"
+                placeholder="gemini-2.0-flash-lite",
+                help="Leave empty to use default model (gemini-2.0-flash-lite)"
             )
+            # Convert empty string to None for proper default handling
+            if not model_name or model_name.strip() == "":
+                model_name = None
 
         # API Key for cloud mode
         api_key = None
@@ -137,6 +184,8 @@ def sidebar_config():
                 type="password",
                 help="Enter your Google Gemini API key"
             )
+            if not api_key:
+                st.warning("⚠️ Google API key is required for cloud mode")
 
         # Cache settings
         st.divider()
@@ -151,13 +200,21 @@ def sidebar_config():
             disabled=not enable_cache
         )
 
+        # Validation
+        can_initialize = True
+        if mode == "local" and not model_name:
+            can_initialize = False
+            st.warning("⚠️ Please select or enter an Ollama model")
+        if mode == "google" and not api_key:
+            can_initialize = False
+
         # Initialize button
-        if st.button("🚀 Initialize System", type="primary", use_container_width=True):
+        if st.button("🚀 Initialize System", type="primary", use_container_width=True, disabled=not can_initialize):
             st.session_state.rag_initialized = True
             st.session_state.vector_store_path = vector_store_path
             st.session_state.mode = mode
             st.session_state.api_key = api_key
-            st.session_state.model_name = model_name if model_name else None
+            st.session_state.model_name = model_name
             st.session_state.enable_cache = enable_cache
             st.session_state.cache_threshold = cache_threshold
             st.rerun()
@@ -215,8 +272,9 @@ def main():
         **Quick Start:**
         1. Set your vector store path
         2. Choose LLM mode (local/google)
-        3. Configure cache settings (optional)
-        4. Click 'Initialize System'
+        3. Configure your model and API key (if needed)
+        4. Configure cache settings (optional)
+        5. Click 'Initialize System'
         """)
         return
 
@@ -243,7 +301,8 @@ def main():
             if message["role"] == "assistant" and "sources" in message:
                 with st.expander("📚 View Sources"):
                     for i, source in enumerate(message["sources"], 1):
-                        st.markdown(f"**Source {i}:**")
+                        st.markdown(f'<p class="source-header">Source {i}:</p>',
+                                    unsafe_allow_html=True)
                         st.markdown(f'<div class="source-box">{source}</div>',
                                     unsafe_allow_html=True)
 
@@ -285,7 +344,8 @@ def main():
 
                     with source_placeholder.expander("📚 View Sources", expanded=False):
                         for i, source in enumerate(sources, 1):
-                            st.markdown(f"**Source {i}:**")
+                            st.markdown(f'<p class="source-header">Source {i}:</p>',
+                                        unsafe_allow_html=True)
                             st.markdown(f'<div class="source-box">{source}</div>',
                                         unsafe_allow_html=True)
 

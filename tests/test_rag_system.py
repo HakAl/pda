@@ -12,7 +12,7 @@ import pytest
 from unittest.mock import Mock, patch, MagicMock
 from langchain_core.documents import Document
 
-from rag_system import RAGSystem, RAGSystemError, create_rag_system
+from rag_system import RAGSystem, RAGSystemError
 
 
 @pytest.fixture
@@ -304,105 +304,6 @@ class TestLLMInfo:
         info = rag_system_fixture.get_llm_info()
 
         assert info == "Test Model v1.0"
-
-
-class TestCreateRAGSystem:
-    """Test the factory function for creating RAG systems"""
-
-    def test_create_rag_system_local_mode(self):
-        """Test creating RAG system in local mode"""
-        mock_vector_store = Mock()
-
-        # Patch the imports within the create_rag_system function
-        with patch('llm_factory.LLMFactory') as mock_llm_factory:
-            with patch('document_store.DocumentStore') as mock_doc_store_class:
-                mock_llm_config = Mock()
-                mock_llm_config.create_llm.return_value = Mock()
-                mock_llm_config.get_prompt_template.return_value = Mock()
-                mock_llm_config.get_display_name.return_value = "Test LLM"
-                mock_llm_factory.create_from_mode.return_value = mock_llm_config
-
-                mock_doc_store = Mock()
-                mock_doc_store.get_retriever.return_value = Mock()
-                mock_doc_store.get_embedding_function.return_value = Mock()
-                mock_doc_store_class.return_value = mock_doc_store
-
-                rag = create_rag_system(
-                    vector_store=mock_vector_store,
-                    mode="local",
-                    enable_cache=True,
-                    cache_similarity_threshold=0.9,
-                    cache_max_size=50
-                )
-
-                mock_llm_factory.create_from_mode.assert_called_once_with(
-                    mode="local",
-                    api_key=None,
-                    model_name=None
-                )
-                assert isinstance(rag, RAGSystem)
-
-    def test_create_rag_system_google_mode(self):
-        """Test creating RAG system in Google mode"""
-        mock_vector_store = Mock()
-
-        with patch('llm_factory.LLMFactory') as mock_llm_factory:
-            with patch('document_store.DocumentStore') as mock_doc_store_class:
-                mock_llm_config = Mock()
-                mock_llm_config.create_llm.return_value = Mock()
-                mock_llm_config.get_prompt_template.return_value = Mock()
-                mock_llm_config.get_display_name.return_value = "Test LLM"
-                mock_llm_factory.create_from_mode.return_value = mock_llm_config
-
-                mock_doc_store = Mock()
-                mock_doc_store.get_retriever.return_value = Mock()
-                mock_doc_store.get_embedding_function.return_value = Mock()
-                mock_doc_store_class.return_value = mock_doc_store
-
-                rag = create_rag_system(
-                    vector_store=mock_vector_store,
-                    mode="google",
-                    api_key="test_key",
-                    model_name="gemini-pro"
-                )
-
-                mock_llm_factory.create_from_mode.assert_called_once_with(
-                    mode="google",
-                    api_key="test_key",
-                    model_name="gemini-pro"
-                )
-
-    def test_create_rag_system_with_bm25(self):
-        """Test creating RAG system with BM25 index"""
-        mock_vector_store = Mock()
-        mock_bm25_index = Mock()
-        mock_bm25_chunks = [Mock()]
-
-        with patch('llm_factory.LLMFactory') as mock_llm_factory:
-            with patch('document_store.DocumentStore') as mock_doc_store_class:
-                mock_llm_config = Mock()
-                mock_llm_config.create_llm.return_value = Mock()
-                mock_llm_config.get_prompt_template.return_value = Mock()
-                mock_llm_config.get_display_name.return_value = "Test LLM"
-                mock_llm_factory.create_from_mode.return_value = mock_llm_config
-
-                mock_doc_store = Mock()
-                mock_doc_store.get_retriever.return_value = Mock()
-                mock_doc_store.get_embedding_function.return_value = Mock()
-                mock_doc_store_class.return_value = mock_doc_store
-
-                rag = create_rag_system(
-                    vector_store=mock_vector_store,
-                    mode="local",
-                    bm25_index=mock_bm25_index,
-                    bm25_chunks=mock_bm25_chunks
-                )
-
-                mock_doc_store_class.assert_called_once_with(
-                    vector_store=mock_vector_store,
-                    bm25_index=mock_bm25_index,
-                    bm25_chunks=mock_bm25_chunks
-                )
 
 
 class TestIntegration:
