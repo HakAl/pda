@@ -20,14 +20,14 @@ Comprehensive test suite for the PDA (Personal Document Assistant) RAG applicati
 tests/
 ├── __init__.py
 ├── conftest.py                      # Shared fixtures and configuration
-├── test_document_processor.py        # ~25 tests
-├── test_rag_system.py               # ~30 tests
-├── test_hybrid_retriever.py         # ~35 tests
-├── test_query_cache.py              # ~25 tests
-├── test_document_store.py           # ~20 tests
-├── test_llm_factory.py              # Existing tests
-├── test_retrieval_performance.py    # Existing tests
-└── generate_test_data.py            # Test data generation utilities
+├── test_document_processor.py        
+├── test_rag_system.py                
+├── test_hybrid_retriever.py         # todo
+├── test_query_cache.py              # todo
+├── test_document_store.py            
+├── test_llm_factory.py              # todo
+├── test_retrieval_performance.py    # monkey test
+└── generate_test_data.py            # make bad data
 ```
 
 ## Running Tests
