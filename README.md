@@ -67,6 +67,14 @@ pip install -r requirements.txt
 
 ---
 
+### Setup NLTK
+
+```bash
+python -c "import nltk; nltk.download('punkt_tab'); nltk.download('averaged_perceptron_tagger_eng')"
+```
+
+---
+
 ## Requirements (`requirements.txt`)
 
 ```text

@@ -91,7 +91,7 @@ class CLI:
             except Exception as e:
                 print(f"\nAn unexpected error occurred in the chat loop: {e}")
 
-        print("\n\nGoodbye! 👋")
+        print("\n\n👋 Goodbye!")
 
     def _display_sources(self, source_documents):
         print(f"\n📖 Sources:")
@@ -104,7 +104,11 @@ class CLI:
 
     def _handle_switch_llm(self):
         print(f"\n🔄 Current LLM: {self.qa_service.get_llm_display_name()}")
-        confirm = input("Do you want to switch to a different LLM? (yes/no): ").strip().lower()
+        try:
+            confirm = input("Do you want to switch to a different LLM? (yes/no): ").strip().lower()
+        except KeyboardInterrupt:
+            print("\n❌ Switch cancelled.")
+            return
 
         if confirm in ['yes', 'y']:
             new_config = self._choose_llm_config()
@@ -159,13 +163,17 @@ class CLI:
         print("1. Local (Ollama)\n2. Google Gemini")
 
         while True:
-            choice = input("Enter your choice (1 or 2): ").strip()
-            if choice == "1":
-                return CLI._configure_ollama()
-            elif choice == "2":
-                return CLI._configure_google()
-            else:
-                print("❌ Invalid choice. Please enter 1 or 2")
+            try:
+                choice = input("Enter your choice (1 or 2): ").strip()
+                if choice == "1":
+                    return CLI._configure_ollama()
+                elif choice == "2":
+                    return CLI._configure_google()
+                else:
+                    print("❌ Invalid choice. Please enter 1 or 2")
+            except KeyboardInterrupt:
+                print("\n❌ Configuration cancelled.")
+                return None
 
     @staticmethod
     def _configure_ollama() -> Optional[OllamaConfig]:
@@ -203,7 +211,7 @@ class CLI:
             except ValueError:
                 print("❌ Invalid input. Please enter a number.")
             except KeyboardInterrupt:
-                print("\nSelection cancelled.")
+                print("\n❌ Selection cancelled.")
                 return None
 
     @staticmethod
@@ -213,7 +221,12 @@ class CLI:
             print("Please install it with: pip install google-generativeai")
             return None
 
-        api_key = app_config.config.google_api_key or input("Enter Google API Key: ").strip()
+        try:
+            api_key = app_config.config.google_api_key or input("Enter Google API Key: ").strip()
+        except KeyboardInterrupt:
+            print("\n❌ Configuration cancelled.")
+            return None
+
         if not api_key:
             return None
 
@@ -252,9 +265,13 @@ class CLI:
 
         choice = ""
         while choice not in model_map:
-            choice = input(f"Enter your choice (1-{len(model_map)}): ").strip()
-            if choice not in model_map:
-                print("Invalid selection. Please try again.")
+            try:
+                choice = input(f"Enter your choice (1-{len(model_map)}): ").strip()
+                if choice not in model_map:
+                    print("Invalid selection. Please try again.")
+            except KeyboardInterrupt:
+                print("\n❌ Selection cancelled.")
+                return None
 
         _, model_name = model_map[choice]
 
